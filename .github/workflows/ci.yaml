@@ -1,0 +1,387 @@
+# =============================================================================
+# CI/CD Pipeline
+# =============================================================================
+# WHAT THIS DOES:
+#   1. verible-lint   -> checks CODING STYLE (indentation, naming, formatting)
+#   2. slang-rtl      -> checks RTL for real SEMANTIC bugs (syntax + types + connections). for synthesizable design.
+#   3. slang-verif    -> same semantic check, but for your UVM/testbench code
+#   4. verilator-lint -> checks RTL is actually SYNTHESIZABLE (Slang doesn't care about synthesis rules, Verilator does)
+#   5. regression-dsim -> OPTIONAL, DISABLED BY DEFAULT. Real compile+simulate
+#      regression using the same Makefile/vrun.py you use locally. Needs a
+#      self-hosted runner with DSim (or Questa) + a valid license actually
+#      installed - see the comment on that job for how to turn it on.
+#   6. ci-summary     -> prints a readable report and decides pass/fail
+#
+# JOBS RUN IN PARALLEL WHERE POSSIBLE to keep CI fast.
+# Only verilator-lint waits on slang-rtl, because there's no point running a
+# synthesis-rule lint on RTL that doesn't even parse correctly.
+#
+# -----------------------------------------------------------------------------
+# WHY verilator-uvm-informational AND uhdm-optional WERE REMOVED
+# -----------------------------------------------------------------------------
+# - verilator-uvm-informational: a "best-effort" Verilator lint pass over
+#   verif/ that was configured to NEVER fail the build - pure logging, no
+#   real signal. Now that `make verify` does genuine compile+elaborate+run
+#   with a real simulator (locally, and optionally in CI - see job 5 above),
+#   a lint-only probe that can't even run UVM adds nothing this doesn't
+#   already cover better.
+# - uhdm-optional: the Surelog -> UHDM -> Verilator(fork) chain. Nothing in
+#   this repo's flow consumes .uhdm output, so it was re-elaborating RTL
+#   Slang already checked, for no downstream benefit, at real CI-minute cost.
+# Both are gone entirely now, not just disabled - re-add from git history if
+# you ever have an actual reason to (e.g. adding a formal tool that reads UHDM).
+#
+# -----------------------------------------------------------------------------
+# HOW TO EDIT THIS FILE - COMMON CHANGES
+# -----------------------------------------------------------------------------
+# - Added a new top-level folder with RTL in it (e.g. "fpga/")? -> Add it to RTL_PATHS below AND to the `paths:` triggers at the top.
+# - Added a new verification folder? -> Add it to VERIF_PATHS below AND to the `paths:` triggers.
+# - Want a job to stop blocking merges (make it advisory only)? -> Add `continue-on-error: true` to that job, and remove it from the
+#  `needs: [...]` list in ci-summary's failure check.
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - 'hw/**'          # RTL, integration, subsystems, IP
+      - 'common/**'      # shared packages/utils used by both RTL and verif
+      - 'verif/**'       # UVM environment, sequences, tests
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'hw/**'
+      - 'common/**'
+      - 'verif/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+env:
+  # Everything that is synthesizable RTL (design + shared packages/utils).
+  RTL_PATHS: "hw common"
+  # Everything that is verification-only code (UVM agents, sequences, tests).
+  VERIF_PATHS: "verif"
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # JOB 1: Style / formatting check (fast, runs first, everything depends on
+  # nothing else finishing first - this is the cheapest check, so it's a good
+  # "fail fast" gate).
+  # ---------------------------------------------------------------------------
+  verible-lint:
+    name: "Style Check: Verible (All Files)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Verible Linter on All SystemVerilog
+        uses: chipsalliance/verible-linter-action@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+          config_file: '.verible-lint.rules'
+          paths: |
+            ./hw
+            ./common
+            ./verif
+          reviewdog_reporter: 'github-pr-review'
+
+  # ---------------------------------------------------------------------------
+  # JOB 2: Semantic check of RTL only, using Slang.
+  # Slang is a full IEEE-1800 SystemVerilog frontend - it understands the
+  # meaning of the code (types, port connections, undeclared signals),
+  # not just its formatting.
+  # Runs in parallel with verible-lint and slang-verif - independent checks.
+  # ---------------------------------------------------------------------------
+  slang-rtl:
+    name: "Semantic Check: Slang (RTL)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Slang Installation
+        id: cache-slang
+        uses: actions/cache@v4
+        with:
+          path: slang-install
+          key: slang-${{ runner.os }}-v9.1
+          restore-keys: |
+            slang-${{ runner.os }}-
+
+      - name: Install Build Dependencies
+        if: steps.cache-slang.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ ninja-build
+
+      - name: Build and Install Slang
+        if: steps.cache-slang.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/MikePopoloski/slang.git slang-src
+          cd slang-src
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/slang-install \
+            -DBUILD_TESTING=OFF \
+            -DSLANG_INCLUDE_TOOLS=ON
+          cmake --build build -j$(nproc)
+          cmake --install build
+          cd ..
+          rm -rf slang-src
+
+      - name: Run Slang on RTL
+        run: |
+          export PATH="${{ github.workspace }}/slang-install/bin:$PATH"
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Slang: RTL Semantic Analysis"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # NOTE: We use `find` here instead of the per-IP rtl.f filelists
+          # because this job's goal is "does every RTL file parse/elaborate
+          # cleanly", not "build one specific IP in the right order". If you
+          # want stricter, ordered, per-IP checking, loop over each */sim/rtl.f
+          # instead and run slang -f <file> per IP.
+          RTL_FILES=$(find $RTL_PATHS -type f \( -name "*.sv" -o -name "*.svh" \) 2>/dev/null)
+
+          if [ -z "$RTL_FILES" ]; then
+            echo "❌ No SystemVerilog files found in: $RTL_PATHS"
+            exit 1
+          fi
+
+          echo "📁 Found $(echo "$RTL_FILES" | wc -l) RTL file(s)"
+
+          if ! slang $RTL_FILES --color-diagnostics --error-limit=0; then
+            echo "❌ Slang found semantic errors in RTL"
+            exit 1
+          fi
+
+          echo "✅ RTL semantic analysis passed"
+
+  # ---------------------------------------------------------------------------
+  # JOB 3: Semantic check of the UVM/verification code, using Slang.
+  # Verilator can't meaningfully parse class-based UVM code, but Slang can - so this is the one place in
+  # the whole pipeline that actually semantically checks verif/.
+  
+  # `continue-on-error: true` for now: your verif/ code likely hasn't been
+  # run through Slang before, so it may surface a backlog of pre-existing
+  # issues. Leave this non-blocking until you've cleaned that backlog up,
+  # then delete the `continue-on-error` line to make it a hard gate.
+  # ---------------------------------------------------------------------------
+  slang-verif:
+    name: "Semantic Check: Slang (Verification)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true   # <-- remove this line once verif/ is clean
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Slang Installation
+        id: cache-slang
+        uses: actions/cache@v4
+        with:
+          path: slang-install
+          key: slang-${{ runner.os }}-v9.1
+          restore-keys: |
+            slang-${{ runner.os }}-
+
+      - name: Install Build Dependencies
+        if: steps.cache-slang.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ ninja-build
+
+      - name: Build and Install Slang
+        if: steps.cache-slang.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/MikePopoloski/slang.git slang-src
+          cd slang-src
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/slang-install \
+            -DBUILD_TESTING=OFF \
+            -DSLANG_INCLUDE_TOOLS=ON
+          cmake --build build -j$(nproc)
+          cmake --install build
+          cd ..
+          rm -rf slang-src
+
+      - name: Run Slang on Verification Code
+        run: |
+          export PATH="${{ github.workspace }}/slang-install/bin:$PATH"
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Slang: Verification Semantic Analysis"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          VERIF_FILES=$(find $VERIF_PATHS -type f \( -name "*.sv" -o -name "*.svh" \) 2>/dev/null)
+
+          if [ -z "$VERIF_FILES" ]; then
+            echo "❌ No verification files found in: $VERIF_PATHS"
+            exit 1
+          fi
+
+          echo "📁 Found $(echo "$VERIF_FILES" | wc -l) verification file(s)"
+
+          # IMPORTANT: your UVM code presumably does `import uvm_pkg::*;` and
+          # `` `include "uvm_macros.svh" ``. Slang needs to actually see the
+          # UVM library source to resolve that import - it does NOT ship with
+          # one built in. If this step fails with "unknown package uvm_pkg",
+          # you need to either:
+          #   (a) vendor a copy of the open-source UVM library into this repo
+          #       and add its src/ dir to the command below with `-I <path>`
+          #       and include it in $VERIF_FILES, or
+          #   (b) pass `--ignore-unknown-modules` to relax the check (weaker,
+          #       but still catches most real bugs in your own code).
+          if ! slang $VERIF_FILES --color-diagnostics --error-limit=0 --ignore-unknown-modules; then
+            echo "❌ Slang found semantic errors in verification code"
+            exit 1
+          fi
+
+          echo "✅ Verification semantic analysis passed"
+
+  # ---------------------------------------------------------------------------
+  # JOB 4: Synthesizability / lint check of RTL only, using Verilator.
+  # Slang tells you the code is *correct*. Verilator tells you the code is
+  # *synthesizable hardware* (catches things like unintended latches, width
+  # mismatches, X-propagation risks) - a different and complementary check.
+  # Waits on slang-rtl: no point synthesis-checking RTL that doesn't even
+  # elaborate cleanly.
+  # ---------------------------------------------------------------------------
+  verilator-lint:
+    name: "Lint Check: Verilator (RTL Only)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: slang-rtl
+    container:
+      image: verilator/verilator:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Verilator on RTL
+        shell: bash
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Verilator: RTL Synthesis Lint"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          RTL_FILES=$(find $RTL_PATHS -type f -name "*.sv" 2>/dev/null)
+
+          if [ -z "$RTL_FILES" ]; then
+            echo "❌ No RTL files found in: $RTL_PATHS"
+            exit 1
+          fi
+
+          echo "📁 Found $(echo "$RTL_FILES" | wc -l) RTL file(s)"
+
+          set +e
+          verilator --lint-only \
+            --sv \
+            -Wall \
+            --timing \
+            --error-limit 50 \
+            $RTL_FILES 2>&1 | sed \
+              -e "s/^%Error:/$(printf '\033[1;31m')🔴 Error:$(printf '\033[0m')/" \
+              -e "s/^%Warning:/$(printf '\033[1;33m')⚠️  Warning:$(printf '\033[0m')/"
+
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "$(printf '\033[1;31m')❌ Verilator found issues in RTL!$(printf '\033[0m')"
+            exit $EXIT_CODE
+          fi
+
+          echo "$(printf '\033[1;32m')✅ Verilator lint passed!$(printf '\033[0m')"
+
+  # ---------------------------------------------------------------------------
+  # JOB 5 (OPTIONAL, DISABLED BY DEFAULT): real compile+simulate regression,
+  # using the SAME Makefile/vrun.py you already use locally - no CI-specific
+  # duplicate logic, `make regress-all` is the actual command that runs here.
+  #
+  # WHY THIS IS DISABLED (`if: false`):
+  #   `runs-on: [self-hosted, dsim]` requires a machine YOU register as a
+  #   GitHub Actions runner, with DSim (or Questa) actually installed and a
+  #   valid license reachable from it - GitHub's own hosted runners
+  #   (ubuntu-latest etc.) cannot run this, there's no way around that for a
+  #   licensed EDA tool. Every other job in this file deliberately avoids
+  #   needing that; this is the one place where CI would do something none
+  #   of the free/OSS tools above can: actually run your UVM tests.
+  regression-dsim:
+    name: "[Optional, disabled] Full Regression: make regress-all (DSim)"
+    runs-on: [self-hosted, dsim]
+    if: false   # <-- remove this line once a self-hosted "dsim" runner exists
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run full regression via the same Makefile used locally
+        run: make regress-all SIMULATOR=dsim
+
+  # ---------------------------------------------------------------------------
+  # JOB 6: Final summary. Gathers results from all jobs and decides overall
+  # pass/fail. Only the jobs listed in `needs:` below AND checked in the
+  # `if` condition are treated as merge-blocking. slang-verif (while
+  # continue-on-error) and regression-dsim (while disabled) are advisory
+  # and won't block a merge.
+  # ---------------------------------------------------------------------------
+  ci-summary:
+    name: "📊 CI Pipeline Summary"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - verible-lint
+      - slang-rtl
+      - slang-verif
+      - verilator-lint
+    if: always()
+    steps:
+      - name: Display Pipeline Results
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 SystemVerilog CI/CD Pipeline Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🎨 Style & Linting:"
+          echo "  Verible (All):                 ${{ needs.verible-lint.result }}"
+          echo ""
+          echo "🔍 Semantic Analysis (Slang):"
+          echo "  RTL:                           ${{ needs.slang-rtl.result }}"
+          echo "  Verification (advisory):       ${{ needs.slang-verif.result }}"
+          echo ""
+          echo "✅ Synthesizability:"
+          echo "  Verilator (RTL):                ${{ needs.verilator-lint.result }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # Only these three are hard requirements to merge.
+          if [[ "${{ needs.verible-lint.result }}" != "success" ]] || \
+             [[ "${{ needs.slang-rtl.result }}" != "success" ]] || \
+             [[ "${{ needs.verilator-lint.result }}" != "success" ]]; then
+            echo "❌ Critical CI checks failed!"
+            echo ""
+            echo "Required for merge:"
+            echo "  ✓ Verible style check"
+            echo "  ✓ Slang RTL semantic analysis"
+            echo "  ✓ Verilator RTL synthesis lint"
+            echo ""
+            echo "Not required (advisory only, see comments in this file):"
+            echo "  - Slang verification semantic analysis"
+            echo "  - Full regression (disabled until a self-hosted DSim runner exists)"
+            exit 1
+          fi
+
+          echo "✅ All Critical CI Checks Passed!"
+          echo "🎉 Ready for merge!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

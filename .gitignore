@@ -1,0 +1,163 @@
+# -------------------------------------
+# VS Code
+# -------------------------------------
+.vscode/
+*.code-workspace
+*.log
+*.xml
+__pycache__/
+
+# Sigasi Studio
+.sigasi-db/
+.project
+.settings/
+.buildpath
+dsim/
+
+# VS Code Sigasi plugin
+*.svadata/
+*.svd/
+
+# -------------------------------------
+# QuestaSim / ModelSim
+# -------------------------------------
+work/
+vsim.wlf
+transcript
+*.vcd
+*.wlf
+*.ucdb
+*.sdf
+*.vstf
+*.mti
+*.mpf
+*.mpf_new
+
+# Questa/ModelSim INI files
+modelsim.ini
+*.ini
+*.bak
+*.rpt
+
+# -------------------------------------
+# Quartus (Intel FPGA)
+# -------------------------------------
+*.qsf
+*.qpf
+*.sdc
+*.smsg
+*.jdi
+*.sso
+*.pof
+*.sof
+*.jam
+*.hex
+*.hps
+*.sld
+*.pin
+*.map
+*.ttf
+*.jbc
+*.aocx
+*.qws
+*.summary
+
+db/
+incremental_db/
+output_files/
+simulation/modelsim/
+
+# -------------------------------------
+# Vivado (Xilinx FPGA)
+# -------------------------------------
+*.jou
+*.str
+*.cache
+*.runs
+*.hw
+*.ip_user_files
+*.sim
+*.srcs
+*.webtalk
+*.xpr
+*.xsd
+*.xmsgs
+
+# Vivado-generated directories
+.Xil/
+.cache/
+.hw/
+.sim/
+.xpr/
+.xgui/
+.gen/
+.runs/
+.srcs/
+.ip_user_files/
+
+*.pb
+
+# -------------------------------------
+# TersoHDL (if generating JSON or temp data)
+# -------------------------------------
+*.json
+*.terso_cache/
+
+# -------------------------------------
+# General
+# -------------------------------------
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+
+# OS/IDE clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.library_mapping.xml
+*.dpf
+
+# MDC configurations
+*mdc_config.yml
+*mdc_ignore
+
+# Waveform databases
+*.mxd
+
+# DSim artifacts
+.dsim/
+dsim_work
+dsim.env
+dvlcom.env
+dvhcom.env
+metrics_history.db
+metrics.db
+
+# Downloaded files from the remote disk
+_downloaded_*
+.mdc/
+
+# --- Simulator-generated output (DSim + Questa) - add these to your .gitignore ---
+# DSim
+**/sim/dsim_work/
+**/sim/dsim.env
+**/sim/dsim.log
+**/sim/dvlcom.env
+**/sim/dvlcom.log
+**/sim/metrics.db
+**/sim/tr_db.log
+**/sim/waves.vcd
+**/sim/*.vcd
+
+# Questa/ModelSim
+**/sim/work/
+**/sim/transcript
+**/sim/vsim.wlf
+**/sim/*.wlf
+**/sim/wlft??????
+
+# DVT
+*dvt*

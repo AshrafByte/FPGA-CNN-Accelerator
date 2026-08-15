@@ -271,29 +271,35 @@ IDLE -> LOAD_WEIGHTS -> LOAD_ROW -> COMPUTE -> WRITE_OUT -> DONE (-> IDLE)
 `default_nettype none
 
 /**
- * @brief        Window Buffer
- * @desc         Generates KERNEL_SIZE x KERNEL_SIZE sliding windows from a streaming
- *               pixel input for NxN convolution.
+ * Module: mac_array
  *
- * @assumptions  Input stream is never interrupted mid-row
- *               (i_pixel_valid stays high for a full row once asserted).
- *               Border pixels are zero-padded, not replicated.
+ * Purpose:
+ *   Performs KERNEL_SIZE × KERNEL_SIZE multiply-accumulate operations for
+ *   one convolution window, producing one output pixel per COMPUTE cycle.
  *
- * @notes        Line buffer depth is IMG_WIDTH * (KERNEL_SIZE-1).
- *               Resize IMG_WIDTH in cnn_types_pkg if targeting an image
- *               larger than 32x32.
+ * Assumptions:
+ *   - Kernel coefficients are loaded and stable before COMPUTE begins.
+ *   - Overflow handling is performed locally by sat_round().
  *
- * ---------------------------------------------------------------------
+ * Dependencies:
+ *   - window_buffer supplies the input window.
+ *   - ctrl_fsm controls weight loading and computation.
+ *
+ * Notes:
+ *   Accumulator width is PIXEL_WIDTH + KERNEL_COEF_WIDTH +
+ *   $clog2(KERNEL_SIZE**2) to prevent intermediate overflow.
+ *
+ * ───────────────────────────────────────────────────────────────────
  * Naming Convention
- * ---------------------------------------------------------------------
+ * ───────────────────────────────────────────────────────────────────
  *
  * Module Ports
  *   i_              Input
  *   o_              Output
  *
  * Internal Signals
- *   w_              Combinational/internal signal
- *   r_              Registered/sequential storage
+ *   w_              Combinational/internal signal (wire)
+ *   r_              Registered/sequential storage (register)
  *
  * FSM
  *   cs_             Current FSM state
@@ -320,7 +326,7 @@ IDLE -> LOAD_WEIGHTS -> LOAD_ROW -> COMPUTE -> WRITE_OUT -> DONE (-> IDLE)
  *     WS_DONE
  *   } window_state_t;
  *
- * ---------------------------------------------------------------------
+ * ───────────────────────────────────────────────────────────────────
  */
 
 module window_buffer
@@ -331,28 +337,28 @@ module window_buffer
 
   localparam type pixel_t = logic [PIXEL_WIDTH-1:0]
 ) (
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Clock / Reset
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   input logic clk,
   input logic rst_n,
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Inputs
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   input pixel_t i_pixel_data,
   input logic   i_pixel_valid,
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Outputs
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   output pixel_t o_window [KERNEL_SIZE][KERNEL_SIZE],
   output logic   o_window_valid
 );
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // FSM State Type
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   typedef enum logic [1:0] {
     WS_IDLE,
@@ -361,28 +367,28 @@ module window_buffer
     WS_DONE
   } window_state_t;
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // FSM State
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   window_state_t cs_state;
   window_state_t ns_state;
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Combinational Signals
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   logic w_window_ready;
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Registered / Sequential Storage
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   pixel_t r_line_buf [KERNEL_SIZE-1][/* row length */];
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Combinational Logic
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   always_comb begin
     // Default assignment
@@ -413,9 +419,9 @@ module window_buffer
     endcase
   end
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Next-State Logic
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   always_comb begin
     // Hold current state by default
@@ -448,9 +454,9 @@ module window_buffer
     endcase
   end
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Sequential Logic
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
 
   always_ff @(posedge clk or negedge rst_n) begin
 
@@ -466,9 +472,9 @@ module window_buffer
 
   end
 
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Functions
-  // -------------------------------------------------------------------
+  // ───────────────────────────────────────────────────────────────────
   // Prefer functions over tasks for synthesizable combinational logic.
 
   function automatic pixel_t sat_round(
@@ -576,31 +582,48 @@ Every module gets a header at the top of the file (matches section 9's template)
 
 ```systemverilog
 /**
- * @brief        <one-line summary>
- * @desc         <longer description of what it does and why>
- * @assumptions  <anything the module trusts about its inputs/environment that isn't
- *               obvious from the port list>
- * @notes        <anything a teammate opening this file needs — sizing, related files,
- *               non-obvious tradeoffs>
+ * Module: mac_array
+ *
+ * Purpose:
+ *   Performs KERNEL_SIZE × KERNEL_SIZE multiply-accumulate operations for
+ *   one convolution window, producing one output pixel per COMPUTE cycle.
+ *
+ * Assumptions:
+ *   - Kernel coefficients are loaded and stable before COMPUTE begins.
+ *   - Overflow handling is performed locally by sat_round().
+ *
+ * Dependencies:
+ *   - window_buffer supplies the input window.
+ *   - ctrl_fsm controls weight loading and computation.
+ *
+ * Notes:
+ *   Accumulator width is PIXEL_WIDTH + KERNEL_COEF_WIDTH +
+ *   $clog2(KERNEL_SIZE**2) to prevent intermediate overflow.
  */
 ```
 
-Leave `@assumptions` / `@notes` out only if there's genuinely nothing to say. For anything with real behavior, a couple of honest sentences here save whoever opens it next a trip through `docs/spec/`.
 
 ### 14.2 Example
 
 ```systemverilog
 /**
- * @brief        MAC Array
- * @desc         Performs the KERNEL_SIZE x KERNEL_SIZE multiply-accumulate for one
- *               convolution window, producing a single output pixel per COMPUTE cycle.
- * @assumptions  Kernel coefficients are already loaded and stable (see ctrl_fsm's
- *               LOAD_WEIGHTS state) before the first COMPUTE cycle begins. Overflow is
- *               handled by sat_round() in this file, not upstream.
- * @notes        Accumulator width is PIXEL_WIDTH + KERNEL_COEF_WIDTH + $clog2(KERNEL_SIZE**2)
- *               to guarantee no intermediate overflow — see docs/report for the derivation.
- *               Pairs with window_buffer.sv, which supplies the KERNEL_SIZE x KERNEL_SIZE
- *               input window each cycle.
+ * Module: mac_array
+ *
+ * Purpose:
+ *   Performs KERNEL_SIZE × KERNEL_SIZE multiply-accumulate operations for
+ *   one convolution window, producing one output pixel per COMPUTE cycle.
+ *
+ * Assumptions:
+ *   - Kernel coefficients are loaded and stable before COMPUTE begins.
+ *   - Overflow handling is performed locally by sat_round().
+ *
+ * Dependencies:
+ *   - window_buffer supplies the input window.
+ *   - ctrl_fsm controls weight loading and computation.
+ *
+ * Notes:
+ *   Accumulator width is PIXEL_WIDTH + KERNEL_COEF_WIDTH +
+ *   $clog2(KERNEL_SIZE**2) to prevent intermediate overflow.
  */
 module mac_array (
   ...

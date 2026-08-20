@@ -38,7 +38,7 @@ module line_buffer_tb;
    );
 
    // SIM
-   initial begin: simulation
+   initial begin: stimulus_process
 
       tb_util_pkg::apply_reset(
          .i_clk (clk),
@@ -56,6 +56,6 @@ module line_buffer_tb;
 
       $finish();
 
-   end: simulation
+   end: stimulus_process
 
 endmodule

@@ -45,11 +45,12 @@ module kernel_register #(
 
    pixel_t r_weights[WINDOW_SIZE ** 2];
 
-   always_ff @(posedge clk or negedge rst_n) begin
-      if (!rst_n)
+   always_ff @(posedge clk or negedge rst_n) begin : kernel_registers
+      if (!rst_n) begin : reset_kernel_registers
          r_weights <= '{default: '0};
-      else if (i_load_en)
+      end else if (i_load_en) begin : load_kernel_registers
          r_weights <= i_load_data;
+      end
    end
 
    assign o_weights = r_weights;

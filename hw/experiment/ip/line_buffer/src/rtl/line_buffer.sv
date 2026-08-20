@@ -78,10 +78,10 @@ module line_buffer #(
    assign o_rows_ready = (r_rows_loaded == row_count_t'(LINE_NUM));   
 
    always_ff @(posedge clk or negedge rst_n) begin: bank_address
-      if (!rst_n) begin
+      if (!rst_n) begin : reset_bank_state
          r_write_bank  <= '0;
          r_rows_loaded <= '0;
-      end else begin
+      end else begin : update_bank_state
          if (w_row_done)
             r_write_bank <= r_write_bank + 1'b1;
          if (w_row_done && (r_rows_loaded < row_count_t'(LINE_NUM)))

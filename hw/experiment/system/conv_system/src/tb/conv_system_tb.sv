@@ -72,7 +72,7 @@ module conv_system_tb;
       .i_we (i_we)
    );
 
-   initial begin: simulation
+   initial begin: stimulus_process
 
       init();
 
@@ -88,7 +88,7 @@ module conv_system_tb;
 
       $finish();
 
-   end: simulation
+   end: stimulus_process
 
    task automatic init;
       i_load_en  = '0;
@@ -100,7 +100,7 @@ module conv_system_tb;
 
    task automatic load_bram;
       i_we = '1;
-      for(byte i = 1 ; i <= MEMORY_SIZE ; i++) begin
+      for(byte i = 1 ; i <= MEMORY_SIZE ; i++) begin: pixel_stream_loop
          i_din = i;
          @(posedge clk);
          i_waddr++;

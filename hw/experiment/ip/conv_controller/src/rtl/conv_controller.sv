@@ -56,62 +56,62 @@ module conv_controller #(
 
    typedef enum logic [1:0] { ST_IDLE, ST_LOAD, ST_COMPUTE } state_t;
 
-   state_t r_state, w_state;
-   addr_t  r_raddr, w_raddr;
-   col_t   r_col_cnt, w_col_cnt;
-   logic   r_write_en, w_write_en;
+   state_t q_state, d_state;
+   addr_t  q_raddr, d_raddr;
+   col_t   q_col_cnt, d_col_cnt;
+   logic   q_write_en, d_write_en;
    logic   w_streaming;
 
-   always_ff @(posedge clk or negedge rst_n) begin
-      if (!rst_n) r_state <= ST_IDLE;
-      else        r_state <= w_state;
-   end
+   always_ff @(posedge clk or negedge rst_n) begin : state_register
+      if (!rst_n) q_state <= ST_IDLE;
+      else        q_state <= d_state;
+   end : state_register
 
-   always_comb begin
-      w_state = r_state;
-      case (r_state)
-         ST_IDLE:    w_state = i_valid_in ? ST_LOAD : ST_IDLE;
-         ST_LOAD:    w_state = (r_raddr == addr_t'(FILL_LIMIT-1)) ? ST_COMPUTE : ST_LOAD;
-         ST_COMPUTE: w_state = (r_raddr == addr_t'(READ_LIMIT-1)) ? ST_IDLE    : ST_COMPUTE;
-         default:    w_state = ST_IDLE;
+   always_comb begin : state_next_logic
+      d_state = q_state;
+      case (q_state)
+         ST_IDLE:    d_state = i_valid_in ? ST_LOAD : ST_IDLE;
+         ST_LOAD:    d_state = (q_raddr == addr_t'(FILL_LIMIT-1)) ? ST_COMPUTE : ST_LOAD;
+         ST_COMPUTE: d_state = (q_raddr == addr_t'(READ_LIMIT-1)) ? ST_IDLE    : ST_COMPUTE;
+         default:    d_state = ST_IDLE;
       endcase
-   end
+   end : state_next_logic
 
-   assign w_streaming = (r_state != ST_IDLE);
+   assign w_streaming = (q_state != ST_IDLE);
 
-   always_ff @(posedge clk or negedge rst_n) begin
-      if (!rst_n) begin
-         r_raddr    <= '0;
-         r_col_cnt  <= '0;
-         r_write_en <= '0;
-      end else begin
-         r_raddr    <= w_raddr;
-         r_col_cnt  <= w_col_cnt;
-         r_write_en <= w_write_en;
+   always_ff @(posedge clk or negedge rst_n) begin : datapath_registers
+      if (!rst_n) begin : reset_datapath_registers
+         q_raddr    <= '0;
+         q_col_cnt  <= '0;
+         q_write_en <= '0;
+      end else begin : datapath_register_update
+         q_raddr    <= d_raddr;
+         q_col_cnt  <= d_col_cnt;
+         q_write_en <= d_write_en;
       end
-   end
+   end : datapath_registers
 
-   always_comb begin
-      w_raddr    = r_raddr;
-      w_col_cnt  = r_col_cnt;
-      w_write_en = 1'b0;
+   always_comb begin : datapath_next_logic
+      d_raddr    = q_raddr;
+      d_col_cnt  = q_col_cnt;
+      d_write_en = 1'b0;
 
-      case (r_state)
-         ST_IDLE: begin
-            w_raddr   = '0;
-            w_col_cnt = '0;
+      case (q_state)
+         ST_IDLE: begin : idle_datapath
+            d_raddr   = '0;
+            d_col_cnt = '0;
          end
-         ST_LOAD, ST_COMPUTE: begin
-            w_raddr    = r_raddr + 1'b1;
-            w_write_en = 1'b1;
+         ST_LOAD, ST_COMPUTE: begin : streaming_datapath
+            d_raddr    = q_raddr + 1'b1;
+            d_write_en = 1'b1;
          end
       endcase
 
       if (w_streaming)
-         w_col_cnt = (r_col_cnt == col_t'(INPUT_SIZE-1)) ? '0 : r_col_cnt + 1'b1;
-   end
+         d_col_cnt = (q_col_cnt == col_t'(INPUT_SIZE-1)) ? '0 : q_col_cnt + 1'b1;
+   end : datapath_next_logic
 
-   assign o_raddr    = r_raddr;
-   assign o_write_en = r_write_en;
+   assign o_raddr    = q_raddr;
+   assign o_write_en = q_write_en;
 
 endmodule

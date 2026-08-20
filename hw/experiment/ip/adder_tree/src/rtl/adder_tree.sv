@@ -61,14 +61,14 @@ module adder_tree_comb #(
 
    genvar g, k;
    generate
-      for (g = 0; g < NUM_STAGES; g++) begin : gen_stage
+      for (g = 0; g < NUM_STAGES; g++) begin : reduction_stage
          localparam int IN_COUNT  = stage_count(g);
          localparam int OUT_COUNT = stage_count(g+1);
 
-         for (k = 0; k < OUT_COUNT; k++) begin : gen_adder
-            if (2*k+1 < IN_COUNT) begin : gen_pair
+         for (k = 0; k < OUT_COUNT; k++) begin : stage_adder
+            if (2*k+1 < IN_COUNT) begin : paired_addition
                assign w_stage[g+1][k] = w_stage[g][2*k] + w_stage[g][2*k+1];
-            end else begin : gen_passthrough
+            end else begin : unpaired_passthrough
                assign w_stage[g+1][k] = w_stage[g][2*k];
             end
          end

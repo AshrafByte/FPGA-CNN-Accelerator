@@ -48,21 +48,26 @@ module multiplier_array #(
 );
 
    product_t w_products[INPUTS_NUM];
+   product_t r_products[INPUTS_NUM];
+   logic     r_valid_out;
 
-   always_ff @(posedge clk or negedge rst_n) begin
-      if (!rst_n) begin
-         o_products  <= '{default: '0};
-         o_valid_out <= 1'b0;
-      end else begin
-         o_products  <= w_products;
-         o_valid_out <= i_valid_in;
+   assign o_products  = r_products;
+   assign o_valid_out = r_valid_out;
+
+   always_ff @(posedge clk or negedge rst_n) begin : product_registers
+      if (!rst_n) begin : reset_product_registers
+         r_products  <= '{default: '0};
+         r_valid_out <= 1'b0;
+      end else begin : update_product_registers
+         r_products  <= w_products;
+         r_valid_out <= i_valid_in;
       end
-   end
+   end : product_registers
 
-   always_comb begin
+   always_comb begin : product_multipliers
       w_products = '{default: '0};
       for (int i = 0; i < INPUTS_NUM; i++)
          w_products[i] = i_pixels[i] * i_weights[i];
-   end
+   end : product_multipliers
 
 endmodule

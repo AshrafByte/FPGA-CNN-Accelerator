@@ -56,14 +56,17 @@ module window_generator #(
 
    pixel_t   r_window[WINDOW_SIZE][WINDOW_SIZE];
    col_cnt_t r_col_cnt;   // columns shifted in since the last row boundary
+   logic     r_valid_out;
 
-   always_ff @(posedge clk or negedge rst_n) begin
-      if (!rst_n) begin
+   assign o_valid_out = r_valid_out;
+
+   always_ff @(posedge clk or negedge rst_n) begin : window_registers
+      if (!rst_n) begin : reset_window_registers
          r_window    <= '{default: '0};
          r_col_cnt   <= '0;
-         o_valid_out <= 1'b0;
-      end else if (i_shift_en) begin
-         for (int i = 0; i < WINDOW_SIZE; i++) begin
+         r_valid_out <= 1'b0;
+      end else if (i_shift_en) begin : shift_window_registers
+         for (int i = 0; i < WINDOW_SIZE; i++) begin : shift_row
             for (int j = WINDOW_SIZE-1; j > 0; j--)
                r_window[i][j] <= r_window[i][j-1];
             r_window[i][0] <= i_rows[i];
@@ -75,14 +78,14 @@ module window_generator #(
          else if (r_col_cnt < col_cnt_t'(WINDOW_SIZE))
             r_col_cnt <= r_col_cnt + 1'b1;
 
-         o_valid_out <= i_rows_ready && (r_col_cnt >= col_cnt_t'(WINDOW_SIZE-1));
+         r_valid_out <= i_rows_ready && (r_col_cnt >= col_cnt_t'(WINDOW_SIZE-1));
       end
-   end
+   end : window_registers
 
-   always_comb begin
+   always_comb begin : window_flattening
       o_window = '{default: '0};
       for (int i = 0; i < WINDOW_SIZE ** 2; i++)
          o_window[i] = r_window[i / WINDOW_SIZE][i % WINDOW_SIZE];
-   end
+   end : window_flattening
 
 endmodule

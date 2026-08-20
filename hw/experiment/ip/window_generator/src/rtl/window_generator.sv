@@ -46,8 +46,8 @@ module window_generator #(
    input  logic   rst_n,
 
    input  logic   i_shift_en,
-   input  logic   i_row_done,     // pulses every row boundary from line_buffer
-   input  logic   i_rows_ready,   // sticky: enough rows loaded upstream
+   input  logic   i_row_done,     
+   input  logic   i_rows_ready,   
    input  pixel_t i_rows[WINDOW_SIZE],
 
    output pixel_t o_window[WINDOW_SIZE ** 2],
@@ -55,7 +55,7 @@ module window_generator #(
 );
 
    pixel_t   r_window[WINDOW_SIZE][WINDOW_SIZE];
-   col_cnt_t r_col_cnt;   // columns shifted in since the last row boundary
+   col_cnt_t r_col_cnt;   
    logic     r_valid_out;
 
    assign o_valid_out = r_valid_out;
@@ -72,7 +72,6 @@ module window_generator #(
             r_window[i][0] <= i_rows[i];
          end
 
-         // resets on EVERY row boundary, not just the first - this is the fix
          if (i_row_done)
             r_col_cnt <= '0;
          else if (r_col_cnt < col_cnt_t'(WINDOW_SIZE))

@@ -49,7 +49,7 @@ module conv_system #(
 
    localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
    localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,
-   localparam int  FEATURE_WIDTH   = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),  // derived from PRODUCT_WIDTH, not recomputed
+   localparam int  FEATURE_WIDTH   = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),  
    localparam type pixel_t         = logic [PIXEL_WIDTH-1:0],
    localparam type addr_t          = logic [$clog2(MEMORY_SIZE)-1:0],
    localparam type feature_t       = logic [FEATURE_WIDTH-1:0]

@@ -83,7 +83,7 @@ module window_generator
             r_window[i][0] <= i_rows[i];
          end
 
-         // newest (current) row is the live pixel, not a line_buffer tap
+      
          for (int j = WINDOW_SIZE-1; j > 0; j--)
             r_window[WINDOW_SIZE-1][j] <= r_window[WINDOW_SIZE-1][j-1];
          r_window[WINDOW_SIZE-1][0] <= i_pixel;

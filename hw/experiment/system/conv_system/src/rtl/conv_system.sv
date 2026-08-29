@@ -64,7 +64,6 @@ module conv_system #(
    parameter int PIXEL_WIDTH = 8,
    parameter int WINDOW_SIZE = 3,
    parameter int INPUT_SIZE  = 32,
-   parameter int MEMORY_SIZE = INPUT_SIZE ** 2,
 
    localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
    localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,

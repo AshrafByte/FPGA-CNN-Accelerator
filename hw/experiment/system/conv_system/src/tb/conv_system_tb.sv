@@ -38,8 +38,7 @@ module conv_system_tb;
    conv_system #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .WINDOW_SIZE(WINDOW_SIZE),
-      .INPUT_SIZE (INPUT_SIZE),
-      .MEMORY_SIZE(MEMORY_SIZE)
+      .INPUT_SIZE (INPUT_SIZE)
    )
    u_conv_system (
       // Inputs

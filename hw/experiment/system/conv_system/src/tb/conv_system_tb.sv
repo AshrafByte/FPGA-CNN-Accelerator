@@ -21,10 +21,7 @@ module conv_system_tb;
    logic [FEATURE_WIDTH-1:0] o_feature;
    logic                     o_valid_out;
 
-   // Plain TB-side pixel storage - no synthesizable memory needed here at
-   // all, since this is purely stimulus. A simple array indexed by a task
-   // is enough to feed conv_system's i_pixel/i_valid_in one element at a
-   // time, in raster order.
+   
    logic [PIXEL_WIDTH-1:0] tb_image[MEMORY_SIZE];
 
    clk_gen #(
@@ -73,9 +70,7 @@ module conv_system_tb;
       i_pixel    = '0;
    endtask
 
-   // fills the TB-side pixel array with a simple ramp - replaces the old
-   // load_bram task, but no clock edges are consumed doing it since there
-   // is no synthesizable memory to write into anymore
+   
    task automatic fill_image;
       for (int i = 0; i < MEMORY_SIZE; i++)
          tb_image[i] = (i % 256);
@@ -88,8 +83,7 @@ module conv_system_tb;
       i_load_en = '0;
    endtask
 
-   // drives one pixel per cycle straight from tb_image, in order, for
-   // exactly one frame, holding i_valid_in high the whole time
+  
    task automatic start_stream;
       i_valid_in = 1'b1;
       for (int i = 0; i < MEMORY_SIZE; i++) begin

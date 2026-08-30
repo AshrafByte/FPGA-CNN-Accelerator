@@ -58,7 +58,6 @@ module adder_tree
       output logic   o_valid_out
    );
 
-
    product_t r_stage0[NUM_INPUTS];
    logic     r_valid [NUM_STAGES+1];
 
@@ -72,63 +71,66 @@ module adder_tree
       end
    end: stage0_register
 
-genvar g, k;
-generate
-   for (g = 0; g < NUM_STAGES; g++) begin : reduction_stage
+   genvar g, k;
+   generate
+      for (g = 0; g < NUM_STAGES; g++) begin : reduction_stage
 
-      localparam int  IN_COUNT  = stage_input_cnt(g);
-      localparam int  OUT_COUNT = stage_input_cnt(g+1);
-      localparam type out_t     = logic [PRODUCT_WIDTH+g:0];
+         localparam int  IN_COUNT  = stage_input_cnt(g);
+         localparam int  OUT_COUNT = stage_input_cnt(g+1);
+         localparam type out_t     = logic [PRODUCT_WIDTH+g:0];
 
-      out_t r_stage_out[OUT_COUNT];
+         out_t r_stage_out[OUT_COUNT];
 
-      for (k = 0; k < OUT_COUNT; k++) begin : stage_adder
+         for (k = 0; k < OUT_COUNT; k++) begin : stage_adder
 
-         if (g == 0) begin : from_stage0
+            if (g == 0) begin : from_stage0
 
-            if (2*k+1 < IN_COUNT) begin : paired_addition
-               always_ff @(posedge clk or negedge rst_n) begin
-                  if (!rst_n) r_stage_out[k] <= '0;
-                  else        r_stage_out[k] <= out_t'(r_stage0[2*k]) + out_t'(r_stage0[2*k+1]);
-               end
-            end : paired_addition
+               if (2*k+1 < IN_COUNT) begin : paired_addition
+                  always_ff @(posedge clk or negedge rst_n) begin
+                     if (!rst_n) r_stage_out[k] <= '0;
+                     else r_stage_out[k]        <= out_t'(r_stage0[2*k]) + out_t'(r_stage0[2*k+1]);
+                  end
+               end : paired_addition 
+               
+               else begin : unpaired_passthrough
+                  always_ff @(posedge clk or negedge rst_n) begin
+                     if (!rst_n) r_stage_out[k] <= '0;
+                     else r_stage_out[k]        <= out_t'(r_stage0[2*k]);
+                  end
+               end : unpaired_passthrough
 
-            else begin : unpaired_passthrough
-               always_ff @(posedge clk or negedge rst_n) begin
-                  if (!rst_n) r_stage_out[k] <= '0;
-                  else        r_stage_out[k] <= out_t'(r_stage0[2*k]);
-               end
-            end : unpaired_passthrough
+            end : from_stage0 
 
-         end : from_stage0
-         
-         else begin : from_prev_stage
-            if (2*k+1 < IN_COUNT) begin : paired_addition
-               always_ff @(posedge clk or negedge rst_n) begin
-                  if (!rst_n) r_stage_out[k] <= '0;
-                  else        r_stage_out[k] <= out_t'(reduction_stage[g-1].r_stage_out[2*k])
-                                              + out_t'(reduction_stage[g-1].r_stage_out[2*k+1]);
-               end
-            end : paired_addition
-            else begin : unpaired_passthrough
-               always_ff @(posedge clk or negedge rst_n) begin
-                  if (!rst_n) r_stage_out[k] <= '0;
-                  else        r_stage_out[k] <= out_t'(reduction_stage[g-1].r_stage_out[2*k]);
-               end
-            end : unpaired_passthrough
-         end : from_prev_stage
-      end : stage_adder
+            else begin : from_prev_stage
+               if (2*k+1 < IN_COUNT) begin : paired_addition
+                  always_ff @(posedge clk or negedge rst_n) begin
+                     if (!rst_n) r_stage_out[k] <= '0;
+                     else r_stage_out[k]        <= out_t'(reduction_stage[g-1].r_stage_out[2*k])
+                        + out_t'(reduction_stage[g-1].r_stage_out[2*k+1]);
+                  end
+               end : paired_addition 
 
-      always_ff @(posedge clk or negedge rst_n) begin: stage_valid
-         if (!rst_n) r_valid[g+1] <= 1'b0;
-         else        r_valid[g+1] <= r_valid[g];
-      end: stage_valid
-   end : reduction_stage
-endgenerate
+               else begin : unpaired_passthrough
+                  always_ff @(posedge clk or negedge rst_n) begin
+                     if (!rst_n) r_stage_out[k] <= '0;
+                     else r_stage_out[k]        <= out_t'(reduction_stage[g-1].r_stage_out[2*k]);
+                  end
+               end : unpaired_passthrough
+
+            end : from_prev_stage
+
+         end : stage_adder
+
+         always_ff @(posedge clk or negedge rst_n) begin: stage_valid
+            if (!rst_n) r_valid[g+1] <= 1'b0;
+            else r_valid[g+1]        <= r_valid[g];
+         end: stage_valid
+
+      end : reduction_stage
+   endgenerate
 
    assign o_sum       = reduction_stage[NUM_STAGES-1].r_stage_out[0];
    assign o_valid_out = r_valid[NUM_STAGES];
-
 
    function automatic int stage_input_cnt(int stage);
       int c = NUM_INPUTS;

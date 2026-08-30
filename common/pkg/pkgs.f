@@ -1,2 +1,2 @@
-common_pkg.sv
-tb_util_pkg.sv
+./common_pkg.sv
+./tb_util_pkg.sv

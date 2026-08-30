@@ -1,6 +1,4 @@
-../../../../../common/pkg/common_pkg.sv
-../../../../../common/modules/bram.sv
-../../../../../common/modules/clk_gen.sv
-
+-F ../../../../common/modules/modules.f
+-F ../../../../common/pkg/pkgs.f
 -F rtl.f
 -F tb.f

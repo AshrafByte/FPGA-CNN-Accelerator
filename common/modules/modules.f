@@ -1,2 +1,2 @@
-bram.sv
-clk_gen.sv
+./bram.sv
+./clk_gen.sv

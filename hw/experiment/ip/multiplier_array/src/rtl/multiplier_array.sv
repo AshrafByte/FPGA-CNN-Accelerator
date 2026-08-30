@@ -47,13 +47,13 @@ module multiplier_array #(
 )(
    input  logic     clk,
    input  logic     rst_n,
-   input  logic     i_valid_in,
+   input  logic     i_valid,
 
    input  pixel_t   i_pixels [INPUTS_NUM],
    input  pixel_t   i_weights[INPUTS_NUM],
 
    output product_t o_products[INPUTS_NUM],
-   output logic     o_valid_out
+   output logic     o_valid
 );
 
    (* use_dsp = "yes" *) product_t r_products[INPUTS_NUM];
@@ -61,7 +61,7 @@ module multiplier_array #(
    logic     r_valid_out;
 
    assign o_products  = r_products;
-   assign o_valid_out = r_valid_out;
+   assign o_valid = r_valid_out;
 
    always_ff @(posedge clk or negedge rst_n) begin : product_registers
 
@@ -72,7 +72,7 @@ module multiplier_array #(
 
       else begin : update_product_registers
          r_products  <= w_products;
-         r_valid_out <= i_valid_in;
+         r_valid_out <= i_valid;
       end : update_product_registers
 
    end : product_registers

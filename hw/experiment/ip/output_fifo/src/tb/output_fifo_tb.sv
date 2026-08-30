@@ -157,10 +157,10 @@ module output_fifo_tb;
    ) u_dut (
       .clk        (clk),
       .rst_n      (bfm.rst_n),
-      .i_valid_in (bfm.i_valid_in),
-      .i_data_in  (bfm.i_data_in),
-      .o_data_out (bfm.o_data_out),
-      .o_valid_out(bfm.o_valid_out)
+      .i_valid (bfm.i_valid_in),
+      .i_data  (bfm.i_data_in),
+      .o_data (bfm.o_data_out),
+      .o_valid(bfm.o_valid_out)
    );
 
    clk_gen #(

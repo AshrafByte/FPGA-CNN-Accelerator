@@ -61,18 +61,18 @@ module output_fifo
    #(
       parameter int PIXEL_WIDTH       = 8,
       parameter int DEPTH             = 64,
-      parameter int PREFILL_THRESHOLD = DEPTH,
+      parameter int PREFILL_THRESHOLD = DEPTH, 
 
       localparam type pixel_t = logic [PIXEL_WIDTH-1:0]
    )(
       input logic clk,
       input logic rst_n,
 
-      input logic   i_valid_in,
-      input pixel_t i_data_in,
+      input logic   i_valid,
+      input pixel_t i_data,
 
-      output pixel_t o_data_out,
-      output logic   o_valid_out
+      output pixel_t o_data,
+      output logic   o_valid
    );
 
    localparam type addr_t  = logic [$clog2(DEPTH)-1:0];
@@ -88,7 +88,7 @@ module output_fifo
    logic w_will_write;
    logic w_will_read;
 
-   assign w_will_write = i_valid_in;
+   assign w_will_write = i_valid;
    assign w_will_read  = q_prefilled && (q_count != '0);
 
    assign d_write_ptr = w_will_write ? ((q_write_ptr == addr_t'(DEPTH-1)) ? '0 : q_write_ptr + 1'b1) : q_write_ptr;
@@ -124,17 +124,17 @@ module output_fifo
 
    always_ff @(posedge clk) begin: fifo_memory
       if (w_will_write)
-         r_mem[q_write_ptr] <= i_data_in;
+         r_mem[q_write_ptr] <= i_data;
    end: fifo_memory
 
    always_ff @(posedge clk or negedge rst_n) begin: output_register
       if (!rst_n) begin
-         o_data_out  <= '0;
-         o_valid_out <= 1'b0;
+         o_data  <= '0;
+         o_valid <= 1'b0;
       end else begin
-         o_valid_out <= w_will_read;
+         o_valid <= w_will_read;
          if (w_will_read)
-            o_data_out <= r_mem[q_read_ptr];
+            o_data <= r_mem[q_read_ptr];
       end
    end: output_register
 

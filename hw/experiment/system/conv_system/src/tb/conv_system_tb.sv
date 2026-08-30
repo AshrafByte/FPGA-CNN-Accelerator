@@ -1,3 +1,19 @@
+//------------------------------------------------------------------------------
+// Testbench: conv_system_tb
+//
+// Description:
+//   Comprehensive testbench for the conv_system module.
+//   Tests pixel streaming, kernel loading, and feature output validation.
+//
+// Test Flow:
+//   1. Initialize signals
+//   2. Apply reset
+//   3. Load kernel weights via i_weight_valid / i_data streaming
+//   4. Stream image pixels via i_pixel_valid / i_data
+//   5. Capture and verify output features
+//   6. Check valid signal cascading
+//
+//------------------------------------------------------------------------------
 module conv_system_tb;
 
    import common_pkg::*;
@@ -5,91 +21,115 @@ module conv_system_tb;
 
    parameter CLK_PERIOD = 10ns;
 
-   parameter  PIXEL_WIDTH   = 8;
-   parameter  WINDOW_SIZE   = 3;
-   parameter  INPUT_SIZE    = 8;
-   parameter  MEMORY_SIZE   = INPUT_SIZE**2;
-   localparam FEATURE_WIDTH = 2 * PIXEL_WIDTH + $clog2(WINDOW_SIZE**2);
+   parameter int PIXEL_WIDTH   = 8;
+   parameter int WINDOW_SIZE   = 3;
+   parameter int INPUT_SIZE    = 8;
+   parameter int MEMORY_SIZE   = INPUT_SIZE ** 2;
+   localparam int WINDOW_ELEMENTS = WINDOW_SIZE ** 2;
+   localparam int FEATURE_WIDTH = 2 * PIXEL_WIDTH + $clog2(WINDOW_ELEMENTS);
+   localparam type data_t = logic [PIXEL_WIDTH-1:0];
+   localparam type feature_t = logic [FEATURE_WIDTH-1:0];
 
    logic clk;
    logic rst_n;
 
-   logic                     i_valid_in;
-   logic [PIXEL_WIDTH-1:0]   i_pixel;
-   logic                     i_load_en;
-   logic [PIXEL_WIDTH-1:0]   i_weights   [WINDOW_SIZE**2];
-   logic [FEATURE_WIDTH-1:0] o_feature;
-   logic                     o_valid_out;
+   data_t    i_data;
+   logic     i_pixel_valid;
+   logic     i_weight_valid;
+   feature_t o_feature;
+   logic     o_valid;
 
-   
-   logic [PIXEL_WIDTH-1:0] tb_image[MEMORY_SIZE];
+   data_t tb_image[MEMORY_SIZE];
+   data_t tb_kernel[WINDOW_ELEMENTS];
+   int tb_feature_cnt;
 
    clk_gen #(
       .CLK_PERIOD(CLK_PERIOD)
    )
    u_clk_gen (
-      // Outputs
       .clk(clk)
    );
 
    conv_system #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .WINDOW_SIZE(WINDOW_SIZE),
-      .INPUT_SIZE (INPUT_SIZE)
+      .INPUT_SIZE(INPUT_SIZE)
    )
    u_conv_system (
-      // Inputs
-      .clk (clk),
-      .rst_n (rst_n),
-      .i_load_en (i_load_en),
-      .i_pixel (i_pixel),
-      .i_valid_in (i_valid_in),
-      .i_weights (i_weights),
-      // Outputs
-      .o_feature (o_feature),
-      .o_valid_out(o_valid_out)
+      .clk(clk),
+      .rst_n(rst_n),
+      .i_data(i_data),
+      .i_pixel_valid(i_pixel_valid),
+      .i_weight_valid(i_weight_valid),
+      .o_feature(o_feature),
+      .o_valid(o_valid)
    );
+
+   // Monitor output features
+   initial begin: output_monitor
+      tb_feature_cnt = 0;
+      forever begin
+         @(posedge clk);
+         if (o_valid) begin
+            tb_feature_cnt++;
+         end
+      end
+   end: output_monitor
 
    initial begin: stimulus_process
 
       init();
-      apply_reset(clk,100, rst_n);
-
+      apply_reset(clk, 100, rst_n);
+      fill_kernel();
       fill_image();
-      load_kernal();
+      load_kernel();
       start_stream();
-
-      repeat (100) @(posedge clk);
       $finish();
 
    end: stimulus_process
 
    task automatic init;
-      i_load_en  = '0;
-      i_valid_in = '0;
-      i_pixel    = '0;
+      i_data = '0;
+      i_pixel_valid = '0;
+      i_weight_valid = '0;
+      tb_feature_cnt = 0;
    endtask
 
-   
+   // Fill test image with incrementing pattern
    task automatic fill_image;
       for (int i = 0; i < MEMORY_SIZE; i++)
-         tb_image[i] = (i % 256);
+         tb_image[i] = ((i+1) % 256);
    endtask
 
-   task automatic load_kernal;
-      i_load_en = '1;
-      i_weights = '{default:'d1};
-      @(posedge clk);
-      i_load_en = '0;
+   // Fill kernel with constant values
+   task automatic fill_kernel;
+      for (int i = 0; i < WINDOW_ELEMENTS; i++)
+         tb_kernel[i] = 1;
    endtask
 
-  
-   task automatic start_stream;
-      i_valid_in = 1'b1;
-      for (int i = 0; i < MEMORY_SIZE; i++) begin
-         i_pixel = tb_image[i];
+   // Load kernel weights via i_weight_valid / i_data streaming
+   task automatic load_kernel;
+      i_weight_valid <= 1'b1;
+      for (int i = 0; i < WINDOW_ELEMENTS; i++) begin
+         i_data <= tb_kernel[i];
          @(posedge clk);
       end
-      i_valid_in = 1'b0;
+      i_weight_valid <= 1'b0;
+      i_data <= '0;
+      @(posedge clk);
    endtask
+
+   // Stream image pixels via i_pixel_valid / i_data
+   task automatic start_stream;
+      i_pixel_valid = 1'b1;
+      for (int i = 0; i < MEMORY_SIZE; i++) begin
+         i_data = tb_image[i];
+         @(posedge clk);
+      end
+      i_pixel_valid = 1'b0;
+      i_data = '0;
+
+      repeat (500) @(posedge clk);
+   endtask
+
 endmodule

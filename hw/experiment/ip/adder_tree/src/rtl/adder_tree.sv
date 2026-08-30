@@ -50,12 +50,12 @@ module adder_tree
    )(
       input logic clk,
       input logic rst_n,
-      input logic i_valid_in,
 
+      input logic i_valid,
       input product_t i_products[NUM_INPUTS],
 
       output accum_t o_sum,
-      output logic   o_valid_out
+      output logic   o_valid
    );
 
    product_t r_stage0[NUM_INPUTS];
@@ -67,7 +67,7 @@ module adder_tree
          r_valid[0] <= 1'b0;
       end else begin
          r_stage0   <= i_products;
-         r_valid[0] <= i_valid_in;
+         r_valid[0] <= i_valid;
       end
    end: stage0_register
 
@@ -91,7 +91,7 @@ module adder_tree
                      else r_stage_out[k]        <= out_t'(r_stage0[2*k]) + out_t'(r_stage0[2*k+1]);
                   end
                end : paired_addition 
-               
+
                else begin : unpaired_passthrough
                   always_ff @(posedge clk or negedge rst_n) begin
                      if (!rst_n) r_stage_out[k] <= '0;
@@ -130,7 +130,7 @@ module adder_tree
    endgenerate
 
    assign o_sum       = reduction_stage[NUM_STAGES-1].r_stage_out[0];
-   assign o_valid_out = r_valid[NUM_STAGES];
+   assign o_valid = r_valid[NUM_STAGES];
 
    function automatic int stage_input_cnt(int stage);
       int c = NUM_INPUTS;

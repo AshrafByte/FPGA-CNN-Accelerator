@@ -14,7 +14,7 @@
 //     interface, a testbench array) is entirely the caller's concern;
 //     conv_system exposes no address port because it has nothing to
 //     address.
-//   - Pixel acceptance (w_write_en) is a one-cycle-delayed registered
+//   - Pixel acceptance (w_pixel_write_en) is a one-cycle-delayed registered
 //     mirror of i_valid_in, matching the latency convention every other
 //     stage uses.
 //   - line_buffer stores only the WINDOW_SIZE-1 rows preceding the row
@@ -27,14 +27,14 @@
 //     draining feature stream.
 //
 // Data Flow:
-//   - i_pixel streams in under w_write_en, consumed by line_buffer (history)
+//   - i_pixel streams in under w_pixel_write_en, consumed by line_buffer (history)
 //     and window_generator (live current-row tap) simultaneously.
 //   - i_weights load into kernel_register via i_load_en.
 //   - adder_tree's gapped valid+sum feeds output_fifo, which buffers and
 //     smooths the stream before driving o_feature/o_valid_out.
 //
 // Timing:
-//   - w_write_en is a registered, one-cycle-delayed copy of i_valid_in.
+//   - w_pixel_write_en is a registered, one-cycle-delayed copy of i_valid_in.
 //   - o_valid_out naturally returns low once i_valid_in has been low long
 //     enough for every real pipeline stage (including output_fifo) to
 //     drain — no explicit "frame done" signal is needed anywhere in this
@@ -60,63 +60,80 @@
 //   MEMORY_SIZE : Total number of elements in one frame (used only to size
 //                 output_fifo's gap-bridging depth, not for addressing).
 //------------------------------------------------------------------------------
-module conv_system #(
-   parameter int PIXEL_WIDTH = 8,
-   parameter int WINDOW_SIZE = 3,
-   parameter int INPUT_SIZE  = 32,
+module conv_system
+   #(
+      parameter int PIXEL_WIDTH = 8,
+      parameter int WINDOW_SIZE = 3,
+      parameter int INPUT_SIZE  = 32,
 
-   localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
-   localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,
-   localparam int  FEATURE_WIDTH   = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),
-   localparam type pixel_t         = logic [PIXEL_WIDTH-1:0],
-   localparam type feature_t       = logic [FEATURE_WIDTH-1:0],
+      localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
+      localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,
+      localparam int  FEATURE_WIDTH   = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),
+      localparam type data_t          = logic [PIXEL_WIDTH-1:0],
+      localparam type feature_t       = logic [FEATURE_WIDTH-1:0],
 
-   localparam int FIFO_DEPTH             = (INPUT_SIZE - WINDOW_SIZE) * (WINDOW_SIZE - 1),
-   localparam int FIFO_PREFILL_THRESHOLD = FIFO_DEPTH
-)(
-   input  logic  clk,
-   input  logic  rst_n,
+      localparam int FIFO_DEPTH             = (INPUT_SIZE - WINDOW_SIZE) * (WINDOW_SIZE - 1),
+      localparam int FIFO_PREFILL_THRESHOLD = FIFO_DEPTH
+   )(
+      input logic clk,
+      input logic rst_n,
 
-   input  logic   i_valid_in,
-   input  pixel_t i_pixel,
-   input  logic   i_load_en,
-   input  pixel_t i_weights[WINDOW_ELEMENTS],
+      input data_t i_data,
+      input logic  i_pixel_valid,
+      input logic  i_weight_valid,
 
-   output feature_t o_feature,
-   output logic     o_valid_out
-);
+      output feature_t o_feature,
+      output logic     o_valid
+   );
 
-   localparam int LINE_NUM = WINDOW_SIZE;
+   localparam int  LINE_NUM  = WINDOW_SIZE;
+   localparam type product_t = logic[PRODUCT_WIDTH-1:0];
 
-   logic     w_write_en;
-   logic     w_row_done;
-   logic     w_rows_ready;
-   logic     w_window_valid;
-   logic     w_mult_valid;
-   logic     w_sum_valid;
-   pixel_t   w_rows   [LINE_NUM-1];
-   pixel_t   w_window [WINDOW_ELEMENTS];
-   pixel_t   w_weights[WINDOW_ELEMENTS];
+   logic r_pixel_write_en;
+   logic r_weight_write_en;
+   logic w_row_done;
+   logic w_rows_ready;
+   logic w_window_valid;
+   logic w_products_valid;
+   logic w_feature_valid;
+   logic w_operands_valid;
+   logic w_kernel_ready;
+
+   data_t w_rows   [LINE_NUM];
+   data_t w_window [WINDOW_ELEMENTS];
+   data_t w_weights[WINDOW_ELEMENTS];
+
    feature_t w_feature;
-   logic [PRODUCT_WIDTH-1:0] w_products[WINDOW_ELEMENTS];
+   product_t w_products[WINDOW_ELEMENTS];
+   data_t r_data;
 
+   assign w_operands_valid = w_kernel_ready && w_window_valid;
 
    always_ff @(posedge clk or negedge rst_n) begin: write_en_register
-      if (!rst_n) w_write_en <= 1'b0;
-      else        w_write_en <= i_valid_in;
+      if (!rst_n) begin
+         r_weight_write_en <= 1'b0;
+         r_pixel_write_en  <= 1'b0;
+         r_data <= '0;
+      end else begin
+         r_pixel_write_en  <= i_pixel_valid;
+         r_weight_write_en <= i_weight_valid;
+         r_data <= i_data;
+      end
    end: write_en_register
 
    line_buffer #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .LINE_LENGTH(INPUT_SIZE),
-      .LINE_NUM   (LINE_NUM)
+      .LINE_NUM (LINE_NUM)
    ) u_line_buffer (
-      .clk         (clk),
-      .rst_n       (rst_n),
-      .i_write_en  (w_write_en),
-      .i_pixel     (i_pixel),
-      .o_rows      (w_rows),
-      .o_row_done  (w_row_done),
+      .clk (clk),
+      .rst_n (rst_n),
+
+      .i_write_en (r_pixel_write_en),
+      .i_pixel (r_data),
+      
+      .o_rows (w_rows),
+      .o_row_done (w_row_done),
       .o_rows_ready(w_rows_ready)
    );
 
@@ -124,64 +141,74 @@ module conv_system #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .WINDOW_SIZE(WINDOW_SIZE)
    ) u_window_generator (
-      .clk         (clk),
-      .rst_n       (rst_n),
-      .i_write_en  (w_write_en),
-      .i_row_done  (w_row_done),
+      .clk (clk),
+      .rst_n (rst_n),
+
+      .i_write_en (r_pixel_write_en),
+      .i_row_done (w_row_done),
       .i_rows_ready(w_rows_ready),
-      .i_rows      (w_rows),
-      .i_pixel     (i_pixel),
-      .o_window    (w_window),
-      .o_valid_out (w_window_valid)
+      .i_rows (w_rows),
+
+      .o_window (w_window),
+      .o_valid (w_window_valid)
    );
 
    kernel_register #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .WINDOW_SIZE(WINDOW_SIZE)
    ) u_kernel_register (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .i_load_en  (i_load_en),
-      .i_load_data(i_weights),
-      .o_weights  (w_weights)
+      .clk (clk),
+      .rst_n (rst_n),
+      
+      .i_write_en (r_weight_write_en),
+      .i_weight(r_data),
+
+      .o_weights (w_weights),
+      .o_ready(w_kernel_ready)
    );
 
    multiplier_array #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .INPUTS_NUM (WINDOW_ELEMENTS)
    ) u_multiplier_array (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .i_valid_in (w_window_valid),
-      .i_pixels   (w_window),
-      .i_weights  (w_weights),
+      .clk (clk),
+      .rst_n (rst_n),
+      
+      .i_valid (w_operands_valid),
+      .i_pixels (w_window),
+      .i_weights (w_weights),
+
       .o_products (w_products),
-      .o_valid_out(w_mult_valid)
+      .o_valid(w_products_valid)
    );
 
    adder_tree #(
       .PRODUCT_WIDTH(PRODUCT_WIDTH),
-      .NUM_INPUTS   (WINDOW_ELEMENTS)
+      .NUM_INPUTS (WINDOW_ELEMENTS)
    ) u_adder_tree (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .i_valid_in (w_mult_valid),
+      .clk (clk),
+      .rst_n (rst_n),
+
+      .i_valid (w_products_valid),
       .i_products (w_products),
-      .o_sum      (w_feature),
-      .o_valid_out(w_sum_valid)
+
+      .o_sum (w_feature),
+      .o_valid(w_feature_valid)
    );
 
    output_fifo #(
-      .PIXEL_WIDTH      (FEATURE_WIDTH),
-      .DEPTH            (FIFO_DEPTH),
+      .PIXEL_WIDTH (FEATURE_WIDTH),
+      .DEPTH (FIFO_DEPTH),
       .PREFILL_THRESHOLD(FIFO_PREFILL_THRESHOLD)
    ) u_output_fifo (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .i_valid_in (w_sum_valid),
-      .i_data_in  (w_feature),
-      .o_data_out (o_feature),
-      .o_valid_out(o_valid_out)
+      .clk (clk),
+      .rst_n (rst_n),
+
+      .i_valid (w_feature_valid),
+      .i_data (w_feature),
+
+      .o_data (o_feature),
+      .o_valid(o_valid)
    );
 
 endmodule

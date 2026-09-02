@@ -78,6 +78,7 @@ module output_fifo
    localparam type addr_t  = logic [$clog2(DEPTH)-1:0];
    localparam type count_t = logic [$clog2(DEPTH+1)-1:0];
 
+   (* ram_style = "distributed" *)
    pixel_t r_mem [DEPTH];
 
    addr_t  q_write_ptr, d_write_ptr;

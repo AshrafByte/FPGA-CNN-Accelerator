@@ -2,42 +2,52 @@
 // Module: adder_tree
 //
 // Description:
-//   Generic pipelined binary reduction tree that sums NUM_INPUTS values into
-//   a single accumulated result. Each stage's storage is sized to exactly
-//   the width it needs (growing by one guard bit per stage), not padded to
-//   the final accumulator width early — avoids unused high bits sitting
-//   idle in every register below the final stage.
+//   Pipelined binary reduction tree that sums NUM_INPUTS product values into
+//   a single accumulated result. The tree consists of NUM_STAGES combinational
+//   adder levels, with a register stage after each level. An additional input
+//   register stage captures the incoming product array and valid signal.
 //
 // Architecture:
-//   - Built with generate/genvar as a binary tree, NUM_STAGES = $clog2(NUM_INPUTS) deep.
-//   - Stage g's registers are exactly PRODUCT_WIDTH + g bits wide - the
-//     minimum width that can hold the sum of up to 2^g raw inputs without
-//     overflow, and no wider.
-//   - Odd element counts at any stage are registered through unchanged to
-//     the next stage rather than padded, keeping adder count at the
-//     minimum (N-1) regardless of pipelining.
+//   - Stage 0 captures the incoming product array and i_valid.
+//   - Each reduction stage performs pairwise additions between operands from
+//     the previous stage and registers the results.
+//   - The number of operands is approximately halved at every stage until
+//     a single accumulated result remains.
+//   - If a stage contains an odd number of operands, the final operand is
+//     passed through unchanged without adding unnecessary hardware.
+//   - Each reduction stage increases the data width by one bit, providing
+//     sufficient width for the accumulated result without premature overflow.
+//   - The valid signal propagates through the same pipeline stages as the
+//     corresponding data.
 //
 // Data Flow:
-//   - i_products are registered into stage 0 at PRODUCT_WIDTH bits,
-//     alongside i_valid_in.
-//   - Each stage registers the pairwise sum (or passthrough) of the
-//     previous stage's values at that stage's own (one-bit-wider) width,
-//     and its own valid bit shadowing the data one stage behind.
-//   - The final single value and valid bit are driven out as o_sum/o_valid_out.
+//   - i_products are captured into the stage-0 registers together with
+//     i_valid.
+//   - Pairwise additions are performed combinationally between registered
+//     operands.
+//   - Each reduction level registers its results before passing them to the
+//     following level.
+//   - o_sum provides the final accumulated result.
+//   - o_valid indicates when o_sum contains valid data.
 //
 // Timing:
-//   - One register stage per tree level: NUM_STAGES cycles of latency.
-//   - Critical path per stage is a single adder; timing closure does not
-//     worsen as NUM_INPUTS grows, only latency does.
+//   - One register stage is used after each binary reduction level.
+//   - The combinational critical path of each reduction stage contains only
+//     one adder.
+//   - The complete input-to-output latency is NUM_STAGES + 1 clock cycles,
+//     including the initial input register stage.
 //
 // Assumptions:
-//   - i_products are valid and stable whenever i_valid_in is asserted.
-//   - Caller tracks the module's NUM_STAGES-cycle latency only via
-//     o_valid_out.
+//   - i_products are stable and valid when i_valid is asserted.
+//   - NUM_INPUTS is greater than zero.
+//   - Product values are unsigned. Signed arithmetic must be introduced
+//     explicitly if signed products are required.
+//   - The accumulator width is sufficient to represent the sum of all
+//     NUM_INPUTS products.
 //
 // Parameters:
-//   PRODUCT_WIDTH : Bit width of each input value.
-//   NUM_INPUTS    : Number of values to sum; may be any positive integer.
+//   PRODUCT_WIDTH : Width of each input product.
+//   NUM_INPUTS    : Number of product values entering the reduction tree.
 //------------------------------------------------------------------------------
 module adder_tree
    #(
@@ -58,85 +68,65 @@ module adder_tree
       output logic   o_valid
    );
 
-   product_t r_stage0[NUM_INPUTS];
-   logic     r_valid [NUM_STAGES+1];
-
-   always_ff @(posedge clk or negedge rst_n) begin: stage0_register
-      if (!rst_n) begin
-         r_stage0   <= '{default: '0};
-         r_valid[0] <= 1'b0;
-      end else begin
-         r_stage0   <= i_products;
-         r_valid[0] <= i_valid;
-      end
-   end: stage0_register
+   logic     r_valid [NUM_STAGES];
 
    genvar g, k;
    generate
-      for (g = 0; g < NUM_STAGES; g++) begin : reduction_stage
+      for (g = 0; g < NUM_STAGES; g++) begin : stage
 
-         localparam int  IN_COUNT  = stage_input_cnt(g);
-         localparam int  OUT_COUNT = stage_input_cnt(g+1);
-         localparam type out_t     = logic [PRODUCT_WIDTH+g:0];
+         localparam integer IN_COUNT   = (NUM_INPUTS + ((1<<g)-1)) >> g;
+         localparam integer OUT_COUNT  = (IN_COUNT + 1) / 2;
+         localparam integer IN_WIDTH   = PRODUCT_WIDTH + g;
+         localparam integer OUT_WIDTH  = PRODUCT_WIDTH + g + 1;
+         localparam type out_t     = logic [OUT_WIDTH-1:0];
 
+         out_t w_stage_out[OUT_COUNT];
          out_t r_stage_out[OUT_COUNT];
 
-         for (k = 0; k < OUT_COUNT; k++) begin : stage_adder
-
-            if (g == 0) begin : from_stage0
-
-               if (2*k+1 < IN_COUNT) begin : paired_addition
-                  always_ff @(posedge clk or negedge rst_n) begin
-                     if (!rst_n) r_stage_out[k] <= '0;
-                     else r_stage_out[k]        <= out_t'(r_stage0[2*k]) + out_t'(r_stage0[2*k+1]);
-                  end
-               end : paired_addition 
-
-               else begin : unpaired_passthrough
-                  always_ff @(posedge clk or negedge rst_n) begin
-                     if (!rst_n) r_stage_out[k] <= '0;
-                     else r_stage_out[k]        <= out_t'(r_stage0[2*k]);
-                  end
-               end : unpaired_passthrough
-
-            end : from_stage0 
-
-            else begin : from_prev_stage
-               if (2*k+1 < IN_COUNT) begin : paired_addition
-                  always_ff @(posedge clk or negedge rst_n) begin
-                     if (!rst_n) r_stage_out[k] <= '0;
-                     else r_stage_out[k]        <= out_t'(reduction_stage[g-1].r_stage_out[2*k])
-                        + out_t'(reduction_stage[g-1].r_stage_out[2*k+1]);
-                  end
-               end : paired_addition 
-
-               else begin : unpaired_passthrough
-                  always_ff @(posedge clk or negedge rst_n) begin
-                     if (!rst_n) r_stage_out[k] <= '0;
-                     else r_stage_out[k]        <= out_t'(reduction_stage[g-1].r_stage_out[2*k]);
-                  end
-               end : unpaired_passthrough
-
-            end : from_prev_stage
-
+         for (k = 0; k < IN_COUNT/2; k++) begin : stage_adder
+            if (g == 0)
+                assign w_stage_out[k] = i_products[2*k] + i_products[2*k+1];
+            else
+                assign w_stage_out[k] = stage[g-1].r_stage_out[2*k] + stage[g-1].r_stage_out[2*k+1];
          end : stage_adder
 
-         always_ff @(posedge clk or negedge rst_n) begin: stage_valid
-            if (!rst_n) r_valid[g+1] <= 1'b0;
-            else r_valid[g+1]        <= r_valid[g];
-         end: stage_valid
+         if (IN_COUNT % 2 == 1) begin : carry
+            if (g == 0)
+                assign w_stage_out[OUT_COUNT-1] = i_products[IN_COUNT-1];
+            else
+                assign w_stage_out[OUT_COUNT-1] = stage[g-1].r_stage_out[IN_COUNT-1];
+         end : carry
 
-      end : reduction_stage
-   endgenerate
+         for (k = 0; k < OUT_COUNT; k++) begin : reg_stage
+            always_ff @(posedge clk or negedge rst_n) begin
+               if (!rst_n)
+                  r_stage_out[k] <= 0;
+               else 
+                  r_stage_out[k] <= w_stage_out[k];
+            end
+         end : reg_stage
 
-   assign o_sum       = reduction_stage[NUM_STAGES-1].r_stage_out[0];
-   assign o_valid = r_valid[NUM_STAGES];
+         if (g==0) begin
+            always_ff @(posedge clk or negedge rst_n) begin 
+               if (!rst_n)
+                  r_valid[g] <= 1'b0;
+               else 
+                  r_valid[g] <= i_valid;
+            end
+         end else begin
+            always_ff @(posedge clk or negedge rst_n) begin 
+               if (!rst_n)
+                  r_valid[g] <= 1'b0;
+               else 
+                  r_valid[g] <= r_valid[g-1];
+            end
+         end
 
-   function automatic int stage_input_cnt(int stage);
-      int c = NUM_INPUTS;
-      for (int s = 0; s < stage; s++)
-         c = (c + 1) / 2;
-      return c;
-   endfunction
+      end : stage
+endgenerate
+
+   assign o_sum   = stage[NUM_STAGES-1].r_stage_out[0];
+   assign o_valid = r_valid[NUM_STAGES-1];
+
 
 endmodule

@@ -65,11 +65,13 @@ module conv_system
       parameter int PIXEL_WIDTH = 8,
       parameter int WINDOW_SIZE = 3,
       parameter int INPUT_SIZE  = 32,
+      parameter int FEATURE_WIDTH= 16,
 
       localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
       localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,
-      localparam int  FEATURE_WIDTH   = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),
+      localparam int  ACCUM_WIDTH     = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),
       localparam type data_t          = logic [PIXEL_WIDTH-1:0],
+      localparam type accum_t         = logic [ACCUM_WIDTH-1:0],
       localparam type feature_t       = logic [FEATURE_WIDTH-1:0],
 
       localparam int FIFO_DEPTH             = (INPUT_SIZE - WINDOW_SIZE) * (WINDOW_SIZE - 1),
@@ -95,6 +97,7 @@ module conv_system
    logic w_rows_ready;
    logic w_window_valid;
    logic w_products_valid;
+   logic w_accum_valid;
    logic w_feature_valid;
    logic w_operands_valid;
    logic w_kernel_ready;
@@ -103,6 +106,7 @@ module conv_system
    data_t w_window [WINDOW_ELEMENTS];
    data_t w_weights[WINDOW_ELEMENTS];
 
+   accum_t w_accum;
    feature_t w_feature;
    product_t w_products[WINDOW_ELEMENTS];
    data_t r_data;
@@ -192,8 +196,22 @@ module conv_system
       .i_valid (w_products_valid),
       .i_products (w_products),
 
-      .o_sum (w_feature),
-      .o_valid(w_feature_valid)
+      .o_sum (w_accum),
+      .o_valid(w_accum_valid)
+   );
+
+   round_saturate #(
+      .IN_WIDTH(ACCUM_WIDTH),
+      .OUT_WIDTH(FEATURE_WIDTH)
+   ) u_round_saturate (
+      .clk(clk),
+      .rst_n(rst_n),
+      
+      .i_valid(w_accum_valid),
+      .i_data(w_accum),
+      
+      .o_valid(w_feature_valid),
+      .o_data(w_feature)
    );
 
    output_fifo #(

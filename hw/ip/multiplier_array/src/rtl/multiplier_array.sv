@@ -9,7 +9,7 @@
 //
 // Architecture:
 //   - INPUTS_NUM independent combinational multipliers, one per input pair.
-//   - No shared logic between lanes — each product is computed and
+//   - No shared logic between lanes - each product is computed and
 //     registered fully in parallel with every other lane.
 //   - (* use_dsp = "yes" *) on the product register instructs Vivado's
 //     synthesis tool to map each multiply onto a hardware DSP48 slice
@@ -26,7 +26,7 @@
 //     the rising clock edge, giving the module one cycle of latency.
 //
 // Assumptions:
-//   - i_pixels[i] and i_weights[i] correspond to the same tap index i —
+//   - i_pixels[i] and i_weights[i] correspond to the same tap index i -
 //     caller is responsible for consistent ordering between the two arrays.
 //   - i_valid_in reflects that both i_pixels and i_weights are valid and
 //     stable on the same cycle.
@@ -56,31 +56,38 @@ module multiplier_array #(
    output logic     o_valid
 );
 
-   (* use_dsp = "yes" *) product_t r_products[INPUTS_NUM];
-   product_t w_products[INPUTS_NUM];
-   logic     r_valid_out;
+   logic r_s1_valid;
+   logic r_s2_valid;
 
-   assign o_products  = r_products;
-   assign o_valid = r_valid_out;
+   always_ff @(posedge clk or negedge rst_n) begin
+      if (!rst_n) begin
+         r_s1_valid <= 1'b0;
+         r_s2_valid <= 1'b0;
+      end else begin
+         r_s1_valid <= i_valid;
+         r_s2_valid <= r_s1_valid;
+      end
+   end
 
-   always_ff @(posedge clk or negedge rst_n) begin : product_registers
+   (* use_dsp = "yes" *) pixel_t   r_dsp_a [INPUTS_NUM];
+   (* use_dsp = "yes" *) pixel_t   r_dsp_b [INPUTS_NUM];
+   (* use_dsp = "yes" *) product_t r_products [INPUTS_NUM];
 
-      if (!rst_n) begin : reset_product_registers
-         r_products  <= '{default: '0};
-         r_valid_out <= 1'b0;
-      end : reset_product_registers
+   genvar i;
+   generate
+      for (i = 0; i < INPUTS_NUM; i++) begin
+         always_ff @(posedge clk) begin
+               // Stage 1: DSP Input Registers (AREG=1, BREG=1)
+               r_dsp_a[i] <= i_pixels[i];
+               r_dsp_b[i] <= i_weights[i];
 
-      else begin : update_product_registers
-         r_products  <= w_products;
-         r_valid_out <= i_valid;
-      end : update_product_registers
+               // Stage 2: DSP Multiplier + Output Register (PREG=1)
+               r_products[i] <= r_dsp_a[i] * r_dsp_b[i];
+            end
+      end 
+   endgenerate
 
-   end : product_registers
-
-   always_comb begin : product_multipliers
-      w_products = '{default: '0};
-      for (int i = 0; i < INPUTS_NUM; i++)
-         w_products[i] = i_pixels[i] * i_weights[i];
-   end : product_multipliers
+   assign o_products = r_products;
+   assign o_valid    = r_s2_valid;
 
 endmodule

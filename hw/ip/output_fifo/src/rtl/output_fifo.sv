@@ -63,7 +63,7 @@ module output_fifo
       parameter int DEPTH             = 64,
       parameter int PREFILL_THRESHOLD = DEPTH, 
 
-      localparam type pixel_t = logic [PIXEL_WIDTH-1:0]
+      localparam type pixel_t = logic signed [PIXEL_WIDTH-1:0]
    )(
       input logic clk,
       input logic rst_n,

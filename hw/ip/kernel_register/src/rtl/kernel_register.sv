@@ -50,7 +50,7 @@ module kernel_register
       parameter int WINDOW_SIZE = 3,
 
       localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
-      localparam type pixel_t         = logic [PIXEL_WIDTH-1:0]
+      localparam type pixel_t         = logic signed [PIXEL_WIDTH-1:0]
    )(
       input logic clk,
       input logic rst_n,

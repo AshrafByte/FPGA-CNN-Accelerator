@@ -55,8 +55,8 @@ module adder_tree
       parameter int NUM_INPUTS    = 9,
 
       localparam int  NUM_STAGES = $clog2(NUM_INPUTS),
-      localparam type product_t  = logic [PRODUCT_WIDTH-1:0],
-      localparam type accum_t    = logic [PRODUCT_WIDTH + NUM_STAGES - 1:0]
+      localparam type product_t  = logic signed [PRODUCT_WIDTH-1:0],
+      localparam type accum_t    = logic signed [PRODUCT_WIDTH + NUM_STAGES - 1:0]
    )(
       input logic clk,
       input logic rst_n,
@@ -78,7 +78,7 @@ module adder_tree
          localparam integer OUT_COUNT  = (IN_COUNT + 1) / 2;
          localparam integer IN_WIDTH   = PRODUCT_WIDTH + g;
          localparam integer OUT_WIDTH  = PRODUCT_WIDTH + g + 1;
-         localparam type out_t     = logic [OUT_WIDTH-1:0];
+         localparam type out_t     = logic signed [OUT_WIDTH-1:0];
 
          out_t w_stage_out[OUT_COUNT];
          out_t r_stage_out[OUT_COUNT];

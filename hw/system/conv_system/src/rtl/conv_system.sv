@@ -71,8 +71,9 @@ module conv_system
       localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,
       localparam int  ACCUM_WIDTH     = PRODUCT_WIDTH + $clog2(WINDOW_ELEMENTS),
       localparam type data_t          = logic [PIXEL_WIDTH-1:0],
-      localparam type accum_t         = logic [ACCUM_WIDTH-1:0],
-      localparam type feature_t       = logic [FEATURE_WIDTH-1:0],
+      localparam type k_data_t        = logic signed [PIXEL_WIDTH-1:0],
+      localparam type accum_t         = logic signed [ACCUM_WIDTH-1:0],
+      localparam type feature_t       = logic signed [FEATURE_WIDTH-1:0],
 
       localparam int FIFO_DEPTH             = (INPUT_SIZE - WINDOW_SIZE) * (WINDOW_SIZE - 1),
       localparam int FIFO_PREFILL_THRESHOLD = FIFO_DEPTH
@@ -89,7 +90,7 @@ module conv_system
    );
 
    localparam int  LINE_NUM  = WINDOW_SIZE;
-   localparam type product_t = logic[PRODUCT_WIDTH-1:0];
+   localparam type product_t = logic signed [PRODUCT_WIDTH-1:0];
 
    logic r_pixel_write_en;
    logic r_weight_write_en;
@@ -104,7 +105,8 @@ module conv_system
 
    data_t w_rows   [LINE_NUM];
    data_t w_window [WINDOW_ELEMENTS];
-   data_t w_weights[WINDOW_ELEMENTS];
+   
+   k_data_t w_weights[WINDOW_ELEMENTS];
 
    accum_t w_accum;
    feature_t w_feature;

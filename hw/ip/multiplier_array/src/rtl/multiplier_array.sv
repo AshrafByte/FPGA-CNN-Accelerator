@@ -43,14 +43,15 @@ module multiplier_array #(
    parameter  int  INPUTS_NUM  = 9,
 
    localparam type pixel_t   = logic [PIXEL_WIDTH-1:0],
-   localparam type product_t = logic [2*PIXEL_WIDTH-1:0]
+   localparam type k_pixel_t = logic signed [PIXEL_WIDTH-1:0],
+   localparam type product_t = logic signed [2*PIXEL_WIDTH-1:0]
 )(
    input  logic     clk,
    input  logic     rst_n,
    input  logic     i_valid,
 
    input  pixel_t   i_pixels [INPUTS_NUM],
-   input  pixel_t   i_weights[INPUTS_NUM],
+   input  k_pixel_t i_weights[INPUTS_NUM],
 
    output product_t o_products[INPUTS_NUM],
    output logic     o_valid
@@ -70,7 +71,7 @@ module multiplier_array #(
    end
 
    (* use_dsp = "yes" *) pixel_t   r_dsp_a [INPUTS_NUM];
-   (* use_dsp = "yes" *) pixel_t   r_dsp_b [INPUTS_NUM];
+   (* use_dsp = "yes" *) k_pixel_t r_dsp_b [INPUTS_NUM];
    (* use_dsp = "yes" *) product_t r_products [INPUTS_NUM];
 
    genvar i;

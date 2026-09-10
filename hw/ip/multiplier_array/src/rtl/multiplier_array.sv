@@ -56,6 +56,7 @@ module multiplier_array #(
    output product_t o_products[INPUTS_NUM],
    output logic     o_valid
 );
+   localparam type operand_t = logic signed [PIXEL_WIDTH:0]; 
 
    logic r_s1_valid;
    logic r_s2_valid;
@@ -70,7 +71,7 @@ module multiplier_array #(
       end
    end
 
-   (* use_dsp = "yes" *) pixel_t   r_dsp_a [INPUTS_NUM];
+   (* use_dsp = "yes" *) operand_t r_dsp_a [INPUTS_NUM];
    (* use_dsp = "yes" *) k_pixel_t r_dsp_b [INPUTS_NUM];
    (* use_dsp = "yes" *) product_t r_products [INPUTS_NUM];
 

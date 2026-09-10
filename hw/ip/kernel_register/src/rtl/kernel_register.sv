@@ -79,6 +79,8 @@ module kernel_register
          r_wr_ptr            <= (r_wr_ptr == idx_t'(WINDOW_ELEMENTS-1)) ? '0 : r_wr_ptr + 1'b1;
          if (r_loaded_cnt < load_cnt_t'(WINDOW_ELEMENTS))
             r_loaded_cnt <= r_loaded_cnt + 1'b1;
+         else 
+            r_loaded_cnt <= '0 ;
       end
    end: kernel_registers
 

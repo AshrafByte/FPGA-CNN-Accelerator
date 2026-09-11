@@ -161,3 +161,9 @@ _downloaded_*
 
 # DVT
 *dvt*
+# conv_lab (sw/) simulator run artifacts, venvs and Python caches
+sw/.run/
+.venv/
+__pycache__/
+.pytest_cache/
+.idea/

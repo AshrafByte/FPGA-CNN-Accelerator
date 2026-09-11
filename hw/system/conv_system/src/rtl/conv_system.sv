@@ -4,8 +4,14 @@
 // Description:
 //   Top-level integration of a streaming 2D convolution pipeline: pixel
 //   acceptance gating, line buffer, window generator, kernel register,
-//   multiplier array, adder tree, and an output FIFO, wired end to end to
-//   produce a smoothed, gap-absorbed output feature stream.
+//   multiplier array, adder tree, round/saturate, an optional ReLU
+//   activation, and an output FIFO, wired end to end to produce a smoothed,
+//   gap-absorbed output feature stream.
+//
+//   The datapath is replicated NUM_KERNELS times from multiplier_array
+//   onward: the window and the pixel front end are shared, every lane sees
+//   the same window on the same cycle with its own weights, so all lanes
+//   advance in lockstep and produce feature k of every lane together.
 //
 // Architecture:
 //   - This module has NO knowledge of external memory, addressing, or
@@ -22,6 +28,14 @@
 //     off i_pixel, by window_generator.
 //   - kernel_register holds statically-loaded kernel weights.
 //   - multiplier_array + adder_tree compute the windowed multiply-accumulate.
+//   - round_saturate narrows the ACCUM_WIDTH sum to FEATURE_WIDTH with
+//     round-to-nearest-even and signed saturation.
+//   - relu_unit clamps negative features to zero when ENABLE_RELU is set.
+//     When it is clear the lane is a wire-through assign, so the parameter
+//     costs a pipeline stage rather than a mux on the critical path: with
+//     ReLU on, every lane is one cycle deeper. Only the absolute latency
+//     changes - feature order, feature count and o_valid's shape do not,
+//     because relu_unit reproduces its input valid pattern exactly.
 //   - output_fifo absorbs the row-boundary valid gaps inherent to
 //     adder_tree's output, re-emitting a prefill-gated, continuously
 //     draining feature stream.
@@ -30,16 +44,19 @@
 //   - i_pixel streams in under w_pixel_write_en, consumed by line_buffer (history)
 //     and window_generator (live current-row tap) simultaneously.
 //   - i_weights load into kernel_register via i_load_en.
-//   - adder_tree's gapped valid+sum feeds output_fifo, which buffers and
-//     smooths the stream before driving o_feature/o_valid_out.
+//   - adder_tree's gapped valid+sum is narrowed by round_saturate, passed
+//     through relu_unit (or straight past it), and feeds output_fifo, which
+//     buffers and smooths the stream before driving o_feature/o_valid.
 //
 // Timing:
 //   - w_pixel_write_en is a registered, one-cycle-delayed copy of i_valid_in.
-//   - o_valid_out naturally returns low once i_valid_in has been low long
+//   - o_valid naturally returns low once i_valid_in has been low long
 //     enough for every real pipeline stage (including output_fifo) to
 //     drain — no explicit "frame done" signal is needed anywhere in this
 //     chain, since every stage's valid/enable ultimately derives from
 //     i_valid_in's own level.
+//   - All lanes are structurally identical and therefore valid-aligned, so
+//     o_valid is taken from lane 0 alone.
 //
 // Assumptions:
 //   - Caller is solely responsible for presenting i_pixel/i_valid_in in the
@@ -57,8 +74,11 @@
 //   PIXEL_WIDTH : Width of each input pixel and kernel weight.
 //   WINDOW_SIZE : Kernel dimension (e.g. 3 for a 3x3 kernel).
 //   INPUT_SIZE  : Image row width.
-//   MEMORY_SIZE : Total number of elements in one frame (used only to size
-//                 output_fifo's gap-bridging depth, not for addressing).
+//   FEATURE_WIDTH: Width of each output feature after round/saturate.
+//   NUM_KERNELS : Number of parallel kernel lanes. Each lane has its own
+//                 kernel_register, multiplier_array, adder_tree,
+//                 round_saturate, ReLU and output_fifo.
+//   ENABLE_RELU : 1 inserts a relu_unit per lane, 0 bypasses it.
 //------------------------------------------------------------------------------
 module conv_system
    #(
@@ -67,6 +87,7 @@ module conv_system
       parameter int INPUT_SIZE  = 32,
       parameter int FEATURE_WIDTH= 16,
       parameter int NUM_KERNELS = 1,
+      parameter bit ENABLE_RELU = 1'b1,
 
       localparam int  WINDOW_ELEMENTS = WINDOW_SIZE ** 2,
       localparam int  PRODUCT_WIDTH   = 2 * PIXEL_WIDTH,
@@ -106,6 +127,7 @@ module conv_system
    logic [NUM_KERNELS-1:0] w_kernel_ready ;
    logic w_all_kernels_ready;
    logic w_o_valid [NUM_KERNELS];
+   logic w_post_valid [NUM_KERNELS];
 
 
    data_t w_rows   [LINE_NUM];
@@ -115,6 +137,7 @@ module conv_system
 
    accum_t w_accum [NUM_KERNELS];
    feature_t w_feature [NUM_KERNELS];
+   feature_t w_post_feature [NUM_KERNELS];
    product_t w_products [NUM_KERNELS][WINDOW_ELEMENTS];
    data_t r_data;
 
@@ -169,7 +192,7 @@ module conv_system
    );
    
    generate
-      for(i=0;i<NUM_KERNELS;i++) begin
+      for(i=0;i<NUM_KERNELS;i++) begin : gen_kerenl_register
          logic w_kernel_en[NUM_KERNELS] ;
          assign w_kernel_en[i] = r_weight_write_en&&(i_select_kernel==i);
 
@@ -186,11 +209,11 @@ module conv_system
             .o_weights (w_weights[i]),
             .o_ready(w_kernel_ready[i])
          );
-      end
+      end : gen_kerenl_register
    endgenerate
 
    generate
-      for(i=0;i<NUM_KERNELS;i++) begin
+      for(i=0;i<NUM_KERNELS;i++) begin : gen_mul_array
          multiplier_array #(
             .PIXEL_WIDTH(PIXEL_WIDTH),
             .INPUTS_NUM (WINDOW_ELEMENTS)
@@ -205,11 +228,11 @@ module conv_system
             .o_products (w_products[i]),
             .o_valid(w_products_valid[i])
          );
-      end
+      end : gen_mul_array
    endgenerate
 
    generate
-      for(i=0;i<NUM_KERNELS;i++) begin
+      for(i=0;i<NUM_KERNELS;i++) begin : gen_adder_tree
          adder_tree #(
             .PRODUCT_WIDTH(PRODUCT_WIDTH),
             .NUM_INPUTS (WINDOW_ELEMENTS)
@@ -223,11 +246,11 @@ module conv_system
             .o_sum (w_accum[i]),
             .o_valid(w_accum_valid[i])
          );
-      end
+      end : gen_adder_tree
    endgenerate
 
    generate
-      for(i=0;i<NUM_KERNELS;i++) begin
+      for(i=0;i<NUM_KERNELS;i++) begin : gen_round_sat
          round_saturate #(
             .IN_WIDTH(ACCUM_WIDTH),
             .OUT_WIDTH(FEATURE_WIDTH)
@@ -241,11 +264,34 @@ module conv_system
             .o_valid(w_feature_valid[i]),
             .o_data(w_feature[i])
          );
-      end
+      end : gen_round_sat
    endgenerate
 
    generate
-      for(i=0;i<NUM_KERNELS;i++) begin
+      for(i=0;i<NUM_KERNELS;i++) begin : gen_post
+         if (ENABLE_RELU) begin : gen_relu
+            relu_unit #(
+               .FEATURE_WIDTH(FEATURE_WIDTH)
+            ) u_relu_unit (
+               .clk (clk),
+               .rst_n (rst_n),
+
+               .i_valid (w_feature_valid[i]),
+               .i_feature (w_feature[i]),
+
+               .o_valid (w_post_valid[i]),
+               .o_feature (w_post_feature[i])
+            );
+         end : gen_relu
+         else begin : gen_bypass
+            assign w_post_valid[i]   = w_feature_valid[i];
+            assign w_post_feature[i] = w_feature[i];
+         end : gen_bypass
+      end : gen_post
+   endgenerate
+
+   generate
+      for(i=0;i<NUM_KERNELS;i++) begin : gen_output_fifo
          output_fifo #(
             .PIXEL_WIDTH (FEATURE_WIDTH),
             .DEPTH (FIFO_DEPTH),
@@ -254,13 +300,13 @@ module conv_system
             .clk (clk),
             .rst_n (rst_n),
 
-            .i_valid (w_feature_valid[i]),
-            .i_data (w_feature[i]),
+            .i_valid (w_post_valid[i]),
+            .i_data (w_post_feature[i]),
 
             .o_data (o_feature[i]),
             .o_valid(w_o_valid[i])
          );
-      end
+      end : gen_output_fifo
    endgenerate
 
 endmodule

@@ -5,7 +5,7 @@
 //   Self-checking testbench for conv_system. Loads the kernels serially over the
 //   shared data bus, streams one frame in raster order, and compares every
 //   valid-gated feature of every lane against a reference model of the pipeline
-//   (signed MAC -> round-to-nearest-even -> saturation).
+//   (signed MAC -> round-to-nearest-even -> saturation -> ReLU).
 //
 // Two things the model has to get right, both non-obvious from the port list:
 //
@@ -25,9 +25,29 @@
 //   exactly OUTPUT_SIZE**2 features per lane in raster order, and that is what
 //   gets checked.
 //
+//   ReLU placement. relu_unit sits AFTER round_saturate, so it clamps the
+//   narrowed feature, not the raw accumulator. The distinction is observable:
+//   an accumulator that saturates negative gives MIN_FEAT, and only then
+//   becomes 0 - clamping first would have lost the saturation entirely. The
+//   model therefore applies the stages in that exact order, and never folds
+//   the clamp into the MAC.
+//
+//   ReLU is a pipeline stage, not a mux, so ENABLE_RELU=1 makes every lane one
+//   cycle deeper. Nothing here depends on that: the checks are on order and
+//   count, and relu_unit reproduces its input valid pattern exactly.
+//
+//   Negative coverage. A ReLU that is wired up but never presented with a
+//   negative feature passes every value check trivially, and so does a ReLU
+//   that has been optimised away. tb_clamped counts how many features the
+//   MODEL had to clamp, and relu_clamp fails if that count is zero - the
+//   stimulus itself is checked, not just the response to it.
+//
 // Kernel count:
 //   NUM_KERNELS is an overridable parameter - run the single-lane case with
-//   `vsim -gNUM_KERNELS=1 work.conv_system_tb`. SEL_WIDTH mirrors conv_system's
+//   `vsim -gNUM_KERNELS=1 work.conv_system_tb`. ENABLE_RELU is overridable the
+//   same way (`-gENABLE_RELU=0`) and is forwarded to both the DUT and the
+//   model, so the bypass build is checked by the same suite rather than by a
+//   second, drifting copy of it. SEL_WIDTH mirrors conv_system's
 //   sel_ker_t ($clog2(N)+1 bits) rather than computing its own minimum, so a
 //   change to that encoding shows up as a width mismatch instead of silently
 //   truncating.
@@ -42,7 +62,8 @@ module conv_system_tb;
 
    import tb_util_pkg::apply_reset;
 
-   parameter int NUM_KERNELS = 2;   // override with vsim -gNUM_KERNELS=<n>
+   parameter int NUM_KERNELS = 2;      // override with vsim -gNUM_KERNELS=<n>
+   parameter bit ENABLE_RELU = 1'b1;   // override with vsim -gENABLE_RELU=0
 
    localparam time CLK_PERIOD    = 10ns;
    localparam int  PIXEL_WIDTH   = 8;
@@ -88,7 +109,8 @@ module conv_system_tb;
       .WINDOW_SIZE  (WINDOW_SIZE),
       .INPUT_SIZE   (INPUT_SIZE),
       .FEATURE_WIDTH(FEATURE_WIDTH),
-      .NUM_KERNELS  (NUM_KERNELS)
+      .NUM_KERNELS  (NUM_KERNELS),
+      .ENABLE_RELU  (ENABLE_RELU)
    ) u_dut (
       .clk(clk), .rst_n(rst_n),
       .i_data(i_data), .i_pixel_valid(i_pixel_valid),
@@ -105,6 +127,7 @@ module conv_system_tb;
 
    string tb_test;
    int    tb_checked;
+   int    tb_clamped;        // features the model clamped this test (pre-ReLU < 0)
    int    tb_test_errors;
    int    tb_errors;
    int    tb_tests_failed;
@@ -174,11 +197,22 @@ module conv_system_tb;
       return feature_t'(q);
    endfunction
 
+   // relu_unit: sign bit of the ALREADY-NARROWED feature selects zero.
+   function automatic feature_t model_relu(feature_t value);
+      if (!ENABLE_RELU)  return value;
+      return value[FEATURE_WIDTH-1] ? '0 : value;
+   endfunction
+
    task automatic expect_frame();
+      feature_t narrowed;
+      tb_clamped = 0;
       for (int k = 0; k < NUM_KERNELS; k++)
          for (int r = 0; r < OUTPUT_SIZE; r++)
-            for (int c = 0; c < OUTPUT_SIZE; c++)
-               tb_expected[k].push_back(model_round_saturate(model_mac(k, r, c)));
+            for (int c = 0; c < OUTPUT_SIZE; c++) begin
+               narrowed = model_round_saturate(model_mac(k, r, c));
+               if (narrowed[FEATURE_WIDTH-1]) tb_clamped++;
+               tb_expected[k].push_back(model_relu(narrowed));
+            end
    endtask
 
    //---------------------------------------------------------------------------
@@ -257,13 +291,19 @@ module conv_system_tb;
    //---------------------------------------------------------------------------
    // Test body. poison_unused writes a full kernel at select == NUM_KERNELS,
    // which addresses no lane and must leave every lane untouched.
+   //
+   // min_clamped is a floor on the STIMULUS, not on the DUT: it asserts that
+   // this test actually drove at least that many negative features into the
+   // ReLU. Without it a test can pass for the wrong reason - every feature
+   // non-negative, nothing for the clamp to do.
    //---------------------------------------------------------------------------
-   task automatic run_frame_test(string name, bit poison_unused = 0);
+   task automatic run_frame_test(string name, bit poison_unused = 0, int min_clamped = 0);
       weight_t poison [WINDOW_ELEMENTS];
 
       tb_test        = name;
       tb_test_errors = 0;
       tb_checked     = 0;
+      tb_clamped     = 0;
       tb_tests_run++;
       foreach (tb_expected[k]) tb_expected[k].delete();
 
@@ -286,8 +326,13 @@ module conv_system_tb;
       stream_frame();
       drain_and_check();
 
+      if (tb_clamped < min_clamped)
+         fail($sformatf("stimulus drove %0d negative feature(s) into ReLU, test needs >= %0d",
+                        tb_clamped, min_clamped));
+
       if (tb_test_errors == 0)
-         $display("[PASS] %s: %0d feature(s) x %0d kernel(s)", name, tb_checked, NUM_KERNELS);
+         $display("[PASS] %s: %0d feature(s) x %0d kernel(s), %0d clamped",
+                  name, tb_checked, NUM_KERNELS, ENABLE_RELU ? tb_clamped : 0);
       else begin
          tb_tests_failed++;
          $display("[FAIL] %s: %0d error(s)", name, tb_test_errors);
@@ -313,6 +358,8 @@ module conv_system_tb;
                INPUT_SIZE, INPUT_SIZE, WINDOW_SIZE, WINDOW_SIZE, NUM_KERNELS, SEL_WIDTH);
       $display("[TEST] conv_system: %0d feature(s) per lane per frame, ACCUM=%0d DROP=%0d",
                FRAME_FEATURES, ACCUM_WIDTH, DROP);
+      if (ENABLE_RELU) $display("[TEST] conv_system: ENABLE_RELU=1 (relu_unit per lane)");
+      else             $display("[TEST] conv_system: ENABLE_RELU=0 (ReLU bypassed)");
 
       // uniform kernels over a ramp: plain streaming path, distinct gain per lane
       fill_image(IMAGE_RAMP);
@@ -324,15 +371,34 @@ module conv_system_tb;
       for (int k = 0; k < NUM_KERNELS; k++) set_rotated(k, ascending);
       run_frame_test("tap_order");
 
-      // negative weights: weights are typed signed, results must be too
+      // negative weights: weights are typed signed, results must be too.
+      // A laplacian over a random image straddles zero, so this is the mixed
+      // case - some features pass through the ReLU, some are clamped, and a
+      // clamp that leaked into the positive side would show up as a mismatch.
       fill_image(IMAGE_RANDOM);
       for (int k = 0; k < NUM_KERNELS; k++) set_rotated(k, laplacian);
-      run_frame_test("signed_weights");
+      run_frame_test("signed_weights", 0, 1);
 
       // widest legal accumulation: 255 * 127 * 9 = 291465, inside 20-bit signed
       fill_image(IMAGE_MAX);
       for (int k = 0; k < NUM_KERNELS; k++) set_uniform(k, weight_t'(127 - k));
       run_frame_test("dynamic_range");
+
+      // every window negative by construction: a uniformly negative kernel over
+      // a saturated image. With ReLU on, the whole frame must read back zero on
+      // every lane; with it off, the same frame must read back the untouched
+      // negative values. Demanding that ALL of them were clamped keeps this
+      // from passing on a ReLU that only handles some sign patterns.
+      fill_image(IMAGE_MAX);
+      for (int k = 0; k < NUM_KERNELS; k++) set_uniform(k, weight_t'(-(k + 1)));
+      run_frame_test("relu_clamp", 0, FRAME_FEATURES * NUM_KERNELS);
+
+      // most negative accumulation reachable: 255 * -128 * 9 = -293760, inside
+      // 20-bit signed, so round_saturate emits a large negative feature that
+      // the ReLU must then clamp - saturation first, clamp second.
+      fill_image(IMAGE_MAX);
+      for (int k = 0; k < NUM_KERNELS; k++) set_uniform(k, weight_t'(-128 + k));
+      run_frame_test("relu_negative_range", 0, FRAME_FEATURES * NUM_KERNELS);
 
       // a kernel written at an out-of-range select must land nowhere
       fill_image(IMAGE_RANDOM);

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from collections import Counter
 from collections.abc import Sequence
@@ -12,15 +13,37 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conv_lab.core.images import MAX_DIMENSION
 from conv_lab.core.rendering import save_grid
 
 
+def _sizes(text: str) -> list[int]:
+    """'32' or '16,32,64' -> [16, 32, 64], each a frame size conv_system can take."""
+    try:
+        sizes = sorted({int(part) for part in text.split(",") if part.strip()})
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"expected comma-separated integers such as 16,32,64, got {text!r}") from None
+    if not sizes or sizes[0] < 4 or sizes[-1] > MAX_DIMENSION:
+        raise argparse.ArgumentTypeError(f"sizes must be between 4 and {MAX_DIMENSION}, got {text!r}")
+    return sizes
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption(
+    group = parser.getgroup("conv_lab hardware regression")
+    group.addoption(
+        "--sizes", type=_sizes, default=[32], metavar="N[,N...]",
+        help="frame sizes for the size-independent directed cases (default: 32)",
+    )
+    group.addoption(
         "--seeds", type=int, default=20, metavar="N",
         help="randomised cases in the hardware regression (default: 20)",
     )
-    parser.addoption(
+    group.addoption(
+        "--relu", action="store_true",
+        help="apply ReLU to the saved images; verdicts always use the raw features",
+    )
+    group.addoption(
         "--save-images", type=Path, default=None, metavar="DIR",
         help="keep a comparison PNG of every hardware regression case, plus "
              "summary.txt, in DIR/run-<timestamp>/",
@@ -39,6 +62,7 @@ class Gallery:
 
     folder: Path
     started: datetime
+    settings: str
     lines: list[str] = field(default_factory=list)
     counts: Counter[str] = field(default_factory=Counter)
 
@@ -58,6 +82,7 @@ class Gallery:
     def _write_summary(self) -> None:
         header = [
             f"conv_lab hardware regression, started {self.started:%Y-%m-%d %H:%M:%S}",
+            self.settings,
             f"{sum(self.counts.values())} case(s): {self.counts['PASS']} passed, "
             f"{self.counts['FAIL']} failed, {self.counts['ERROR']} errored",
             "",
@@ -76,12 +101,19 @@ GALLERY = pytest.StashKey[Gallery]()
 
 @pytest.fixture(scope="session")
 def gallery(request: pytest.FixtureRequest) -> Gallery | None:
-    root = request.config.getoption("save_images")
+    config = request.config
+    root = config.getoption("save_images")
     if root is None:
         return None
     started = datetime.now()
-    found = Gallery(root.resolve() / f"run-{started:%Y%m%d-%H%M%S}", started)
-    request.config.stash[GALLERY] = found
+    settings = (
+        f"--sizes {','.join(str(size) for size in config.getoption('sizes'))} · "
+        f"--seeds {config.getoption('seeds')} · "
+        + ("ReLU applied to saved images; verdicts use raw features" if config.getoption("relu")
+           else "raw features")
+    )
+    found = Gallery(root.resolve() / f"run-{started:%Y%m%d-%H%M%S}", started, settings)
+    config.stash[GALLERY] = found
     return found
 
 

@@ -1,8 +1,8 @@
 """Hardware vs reference for one frame, computed once for every consumer.
 
 The CLI report and the hardware regression need the same things from a run: a
-verdict per kernel, frames on a shared display scale, PNG rows, and readable
-failure lines. They live here so the two can never drift apart.
+verdict per kernel, frames on a display scale, PNG rows, and readable failure
+lines. They live here so the two can never drift apart.
 
 The rule this module exists to enforce: verdicts are computed from the RAW frames
 when a comparison is built, and nothing afterwards can change them. `rectified()`
@@ -17,9 +17,9 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-from .rendering import normalise
 from .kernels import Kernel
 from .reference import apply_relu
+from .rendering import normalise
 
 GridRow = list[tuple[str, np.ndarray]]
 
@@ -81,17 +81,22 @@ class LaneComparison:
         return frames
 
     def display_frames(self) -> dict[str, np.ndarray]:
-        """frames() normalised onto one shared scale - see rendering.normalise for why."""
-        frames = self.frames()
-        lo = min(int(frame.min()) for frame in frames.values())
-        hi = max(int(frame.max()) for frame in frames.values())
-        return {name: normalise(frame, lo, hi) for name, frame in frames.items()}
+        """frames() mapped to 0..255 on one grey scale, taken from the reference.
 
-    def difference(self) -> np.ndarray | None:
-        """|hardware - reference| on the raw frames, so it always agrees with the verdict."""
-        if self.hardware is None:
-            return None
-        return np.abs(self.hardware.astype(np.int64) - self.reference.astype(np.int64))
+        The reference is the known-good frame, so it sets the range. A corrupted
+        hardware frame therefore cannot repaint it: on a shared min/max, one huge
+        wrong value (or a kernel landing in the wrong lane) stretches the scale and
+        pushes the correct reference towards black. Hardware values outside the
+        reference's range clip to black or white instead, which makes them easy to
+        spot. Only a flat reference - every feature equal - borrows the combined
+        range, so hardware that differs from it still shows.
+        """
+        frames = self.frames()
+        lo, hi = int(frames["reference"].min()), int(frames["reference"].max())
+        if lo == hi:
+            lo = min(int(frame.min()) for frame in frames.values())
+            hi = max(int(frame.max()) for frame in frames.values())
+        return {name: normalise(frame, lo, hi) for name, frame in frames.items()}
 
     def failure(self) -> str | None:
         """One line describing a mismatch, quoting raw values; None when there is none."""
@@ -146,15 +151,12 @@ class RunComparison:
         return [line for lane in self.mismatched if (line := lane.failure())]
 
     def rectified(self) -> RunComparison:
-        """A copy whose frames() apply ReLU. Verdicts, difference() and failure() are untouched."""
+        """A copy whose frames() apply ReLU. Verdicts and failure() are untouched."""
         return replace(self, lanes=tuple(replace(lane, relu=True) for lane in self.lanes))
 
-    def grid_rows(self, *, difference: bool = False, mismatched_only: bool = False) -> list[GridRow]:
-        """Rows for imaging.save_grid, one per lane:
-        `lane i: kernel | hardware: MATCH/MISMATCH | reference [| |difference|]`.
-
-        The difference panel maps 0 to black, so a matching lane is a solid black
-        square and any mismatch lights up.
+    def grid_rows(self, *, mismatched_only: bool = False) -> list[GridRow]:
+        """Rows for rendering.save_grid, one per lane:
+        `lane i: kernel | hardware: MATCH/MISMATCH | reference`, on display_frames' scale.
         """
         shown_input = normalise(self.image)
         rows: list[GridRow] = []
@@ -164,8 +166,5 @@ class RunComparison:
                 if name == "hardware" and lane.verdict is not None:
                     name = f"hardware: {'MATCH' if lane.verdict.exact else 'MISMATCH'}"
                 row.append((name, frame))
-            diff = lane.difference() if difference else None
-            if diff is not None:
-                row.append(("|difference|", normalise(diff, 0, max(int(diff.max()), 1))))
             rows.append(row)
         return rows

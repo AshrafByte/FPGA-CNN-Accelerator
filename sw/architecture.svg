@@ -1,0 +1,340 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="arch" viewBox="0 0 1460 1260" width="1460" height="1260" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">conv_lab architecture</title>
+  <desc id="arch-desc">Four layers, each importing only the layers below it. Front ends (cli/ and the pytest regression) call Harness.run and receive a HarnessRun. harness.py validates the inputs, computes reference frames with core/, simulates with hardware/ when a QuestaTestbench is attached, checks DROP, and builds a RunComparison. hardware/ imports only kernels and images from core/, never the reference model or the comparison. hardware/contract.py writes stimulus.txt and parses features.txt in the run directory, and hardware/questa.py runs vlog and vsim, where conv_image_tb reads the stimulus, drives conv_system, and writes the features.</desc>
+  <style>
+    .arch {
+      --bg: #F2F4F1; --box: #FFFFFF; --ink: #16201B; --muted: #55645C; --rule: #C2CBC5;
+      --front: #EBF0EC; --host: #E6ECE7; --run: #D9EEEC; --hw: #E0E8EE; --questa: #D3DEE7;
+      --dut: #CFD8D2; --accent: #0B7A83; --accent-ink: #06626A;
+    }
+    @media (prefers-color-scheme: dark) {
+      .arch {
+        --bg: #0D1210; --box: #1D2622; --ink: #DCE5E0; --muted: #90A199; --rule: #33403A;
+        --front: #151C19; --host: #161E1A; --run: #0F2526; --hw: #141D23; --questa: #19242D;
+        --dut: #2B3631; --accent: #45BEC6; --accent-ink: #86D8DE;
+      }
+    }
+    .bg { fill: var(--bg); }
+    .pkg-front { fill: var(--front); stroke: var(--rule); stroke-width: 1; }
+    .pkg-hub { fill: var(--box); stroke: var(--ink); stroke-width: 1.5; }
+    .pkg-hw { fill: var(--hw); stroke: var(--rule); stroke-width: 1; }
+    .pkg-core { fill: var(--host); stroke: var(--rule); stroke-width: 1; }
+    .pkg-run { fill: var(--run); stroke: var(--rule); stroke-width: 1; }
+    .pkg-questa { fill: var(--questa); stroke: var(--rule); stroke-width: 1; }
+    .card { fill: var(--box); stroke: var(--rule); stroke-width: 1; }
+    .card-contract { fill: var(--box); stroke: var(--accent); stroke-width: 1.6; }
+    .chip-dut { fill: var(--dut); stroke: var(--ink); stroke-width: 1.2; }
+    .edge { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+    .ctl { stroke-dasharray: 5 4; }
+    .ah { fill: var(--ink); }
+    text { font-family: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
+    .mono, .pkg, .pkgsub, .card-t, .ln, .ln-ink, .edge-t, .file-t {
+      font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    .h1 { font-size: 22px; font-weight: 600; fill: var(--ink); }
+    .sub { font-size: 12.5px; fill: var(--muted); }
+    .cap { font-family: "IBM Plex Sans Condensed", "Arial Narrow", "Segoe UI", sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; fill: var(--muted); }
+    .pkg { font-size: 15px; font-weight: 700; fill: var(--ink); }
+    .pkgsub { font-size: 11px; fill: var(--muted); }
+    .card-t { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+    .file-t { font-size: 11.5px; font-weight: 600; fill: var(--accent-ink); }
+    .ln { font-size: 10.5px; fill: var(--muted); }
+    .ln-ink { font-size: 10.5px; fill: var(--ink); }
+    .edge-t { font-size: 10.5px; font-weight: 500; fill: var(--ink); }
+    .note { font-size: 10.5px; font-style: italic; fill: var(--muted); }
+    .num { font-weight: 700; fill: var(--accent-ink); }
+    .footer { font-size: 11.5px; fill: var(--muted); }
+    .footer-strong { font-size: 11.5px; font-weight: 600; fill: var(--ink); }
+    .legend { font-size: 11.5px; fill: var(--ink); }
+  </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path class="ah" d="M0 0L10 5L0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1460" height="1260"/>
+
+  <text class="h1" x="40" y="42">conv_lab architecture</text>
+  <text class="sub" x="40" y="64">sw/conv_lab · four layers, each importing only the layers below it · one run through Harness, numbered 1–5</text>
+
+  <!-- import direction -->
+  <path class="edge" d="M1426 124V884" marker-end="url(#ah)"/>
+  <text class="cap" transform="translate(1440 504) rotate(90)" text-anchor="middle">EACH LAYER IMPORTS ONLY THE LAYERS BELOW</text>
+
+  <!-- ===================== front ends ===================== -->
+  <text class="cap" x="40" y="114">FRONT ENDS · PRESENTATION ONLY</text>
+
+  <rect class="pkg-front" x="40" y="124" width="760" height="174" rx="6"/>
+  <text class="pkg" x="56" y="150">cli/</text>
+  <text class="pkgsub" x="100" y="150">python -m conv_lab</text>
+
+  <rect class="card" x="56" y="164" width="173" height="122" rx="4"/>
+  <text class="card-t" x="68" y="184">app.py</text>
+  <text class="ln" x="68" y="204">build_parser()</text>
+  <text class="ln" x="68" y="220">resolve_kernels()</text>
+  <text class="ln" x="68" y="236">resolve_image()</text>
+  <text class="ln" x="68" y="252">main(argv) → exit</text>
+
+  <rect class="card" x="241" y="164" width="173" height="122" rx="4"/>
+  <text class="card-t" x="253" y="184">prompts.py</text>
+  <text class="ln" x="253" y="204">gather_interactive()</text>
+  <text class="ln" x="253" y="220">_prompt_kernels()</text>
+  <text class="ln" x="253" y="236">_prompt_image()</text>
+  <text class="ln" x="253" y="252">_ask()</text>
+
+  <rect class="card" x="426" y="164" width="173" height="122" rx="4"/>
+  <text class="card-t" x="438" y="184">report.py</text>
+  <text class="ln" x="438" y="204">report(run, args)</text>
+  <text class="ln" x="438" y="220">terminal · CSV · PNG</text>
+  <text class="ln" x="438" y="236">one grey scale per lane</text>
+  <text class="ln" x="438" y="252">rectified() for --relu</text>
+
+  <rect class="card" x="611" y="164" width="173" height="122" rx="4"/>
+  <text class="card-t" x="623" y="184">terminal.py</text>
+  <text class="ln" x="623" y="204">rule() · stats()</text>
+  <text class="ln" x="623" y="220">kernel_card()</text>
+  <text class="ln" x="623" y="236">side_by_side()</text>
+  <text class="ln" x="623" y="252">ASCII via core/</text>
+
+  <rect class="pkg-front" x="820" y="124" width="580" height="174" rx="6"/>
+  <text class="pkg" x="836" y="150">tests/</text>
+  <text class="pkgsub" x="900" y="150">pytest · tests/unit/ has one file per module</text>
+
+  <rect class="card" x="836" y="164" width="268" height="122" rx="4"/>
+  <text class="card-t" x="848" y="184">regression/</text>
+  <text class="ln" x="848" y="204">test_hardware_regression.py</text>
+  <text class="ln" x="848" y="220">one Harness for the session</text>
+  <text class="ln" x="848" y="236">verify() → check() → failures()</text>
+  <text class="ln" x="848" y="252">directed × --sizes, + --seeds</text>
+  <text class="ln" x="848" y="268">marker hardware · needs vsim</text>
+
+  <rect class="card" x="1116" y="164" width="268" height="122" rx="4"/>
+  <text class="card-t" x="1128" y="184">conftest.py</text>
+  <text class="ln" x="1128" y="204">--sizes 32,64 · --seeds N</text>
+  <text class="ln" x="1128" y="220">--relu (saved images only)</text>
+  <text class="ln" x="1128" y="236">--save-images DIR</text>
+  <text class="ln" x="1128" y="252">Gallery → run-&lt;ts&gt;/*.png</text>
+  <text class="ln" x="1128" y="268">summary.txt per case</text>
+
+  <!-- front ends <-> pipeline -->
+  <path class="edge" d="M142 286V460H240" marker-end="url(#ah)"/>
+  <text class="edge-t" x="150" y="356">Harness(testbench)</text>
+  <text class="edge-t" x="150" y="370">.run(image, kernels)</text>
+  <path class="edge" d="M512 376V286" marker-end="url(#ah)"/>
+  <text class="edge-t" x="520" y="336">HarnessRun</text>
+  <path class="edge" d="M940 286V376" marker-end="url(#ah)"/>
+  <text class="edge-t" x="932" y="336" text-anchor="end">harness.run() per case</text>
+  <path class="edge" d="M1060 376V286" marker-end="url(#ah)"/>
+  <text class="edge-t" x="1068" y="336">HarnessRun</text>
+
+  <!-- ===================== pipeline ===================== -->
+  <text class="cap" x="40" y="368">PIPELINE</text>
+
+  <rect class="pkg-hub" x="240" y="376" width="960" height="168" rx="6"/>
+  <text class="pkg" x="256" y="402">harness.py</text>
+  <text class="pkgsub" x="366" y="402">the only module where the hardware side and the reference side meet</text>
+
+  <rect class="card" x="256" y="414" width="250" height="116" rx="4"/>
+  <text class="card-t" x="268" y="434">class Harness</text>
+  <text class="ln" x="268" y="454">testbench: QuestaTestbench | None</text>
+  <text class="ln" x="268" y="470">run(image, kernels) → HarnessRun</text>
+  <text class="ln" x="268" y="486">testbench=None: reference only</text>
+  <text class="ln" x="268" y="502">shared by cli/ and tests/</text>
+
+  <text class="cap" x="538" y="434">RUN(IMAGE, KERNELS), IN ORDER</text>
+  <text class="ln-ink" x="538" y="456"><tspan class="num">1</tspan><tspan x="556">validate</tspan><tspan x="650" class="ln">common_size · validate_dimensions</tspan></text>
+  <text class="ln-ink" x="538" y="473"><tspan class="num">2</tspan><tspan x="556">reference</tspan><tspan x="650" class="ln">convolve_all → reference frames</tspan></text>
+  <text class="ln-ink" x="538" y="490"><tspan class="num">3</tspan><tspan x="556">simulate</tspan><tspan x="650" class="ln">testbench.run, if attached</tspan></text>
+  <text class="ln-ink" x="538" y="507"><tspan class="num">4</tspan><tspan x="556">check DROP</tspan><tspan x="650" class="ln">result.drop_bits == drop_bits(K)</tspan></text>
+  <text class="ln-ink" x="538" y="524"><tspan class="num">5</tspan><tspan x="556">compare</tspan><tspan x="650" class="ln">RunComparison.build → HarnessRun</tspan></text>
+
+  <rect class="card" x="934" y="414" width="250" height="116" rx="4"/>
+  <text class="card-t" x="946" y="434">class HarnessRun</text>
+  <text class="ln" x="946" y="454">comparison: RunComparison</text>
+  <text class="ln" x="946" y="470">result: TestbenchResult | None</text>
+  <text class="ln" x="946" y="486">simulated → bool</text>
+  <text class="ln" x="946" y="502">frozen dataclass</text>
+
+  <!-- pipeline -> library -->
+  <path class="edge" d="M320 544V600" marker-end="url(#ah)"/>
+  <text class="edge-t" x="328" y="578">3 · QuestaTestbench.run()</text>
+  <path class="edge" d="M1050 544V600" marker-end="url(#ah)"/>
+  <text class="edge-t" x="1058" y="578">1 · 2 · 4 · 5</text>
+
+  <!-- ===================== library ===================== -->
+  <text class="cap" x="40" y="592">LIBRARY</text>
+
+  <rect class="pkg-hw" x="40" y="600" width="560" height="300" rx="6"/>
+  <text class="pkg" x="56" y="626">hardware/</text>
+  <text class="pkgsub" x="146" y="626">the only package that knows QuestaSim</text>
+
+  <rect class="card-contract" x="56" y="640" width="168" height="244" rx="4"/>
+  <text class="card-t" x="68" y="660">contract.py</text>
+  <text class="ln" x="68" y="680">class TestbenchError</text>
+  <text class="ln" x="68" y="696">pack_kernel()</text>
+  <text class="note" x="80" y="712">reverses each row</text>
+  <text class="ln" x="68" y="728">write_stimulus()</text>
+  <text class="ln" x="80" y="744">→ stimulus.txt</text>
+  <text class="ln" x="68" y="760">parse_results()</text>
+  <text class="ln" x="80" y="776">← features.txt</text>
+  <text class="note" x="68" y="800">the file formats and</text>
+  <text class="note" x="68" y="816">the tap-order flip</text>
+
+  <rect class="card" x="236" y="640" width="168" height="244" rx="4"/>
+  <text class="card-t" x="248" y="660">testbench.py</text>
+  <text class="ln" x="248" y="680">class QuestaTestbench</text>
+  <text class="ln" x="260" y="696">run_dir, echo</text>
+  <text class="ln" x="260" y="712">compiles once</text>
+  <text class="ln" x="260" y="728">run(image, kernels)</text>
+  <text class="ln" x="272" y="744">→ TestbenchResult</text>
+  <text class="ln" x="260" y="760">needs STATUS: OK</text>
+  <text class="ln" x="248" y="784">class TestbenchResult</text>
+  <text class="ln" x="260" y="800">features, drop_bits</text>
+  <text class="ln" x="260" y="816">run_dir, elapsed_s</text>
+  <text class="ln" x="260" y="832">log</text>
+  <text class="note" x="248" y="860">uses contract, questa</text>
+
+  <rect class="card" x="416" y="640" width="168" height="244" rx="4"/>
+  <text class="card-t" x="428" y="660">questa.py</text>
+  <text class="ln" x="428" y="680">commands()</text>
+  <text class="ln" x="440" y="696">vlib, vlog, vsim -g</text>
+  <text class="ln" x="440" y="712">vlog only until</text>
+  <text class="ln" x="440" y="728">compiled once</text>
+  <text class="ln" x="428" y="752">execute()</text>
+  <text class="ln" x="440" y="768">one shell session</text>
+  <text class="ln" x="440" y="784">1800 s timeout</text>
+  <text class="ln" x="428" y="808">MANIFEST</text>
+  <text class="ln" x="440" y="824">sim/compile.f</text>
+  <text class="ln" x="428" y="840">TOP</text>
+  <text class="ln" x="440" y="856">conv_image_tb</text>
+
+  <!-- hardware -> core, restricted -->
+  <path class="edge" d="M600 690H700" marker-end="url(#ah)"/>
+  <text class="edge-t" x="650" y="682" text-anchor="middle">kernels, images</text>
+  <text class="note" x="650" y="706" text-anchor="middle">never reference</text>
+  <text class="note" x="650" y="720" text-anchor="middle">or comparison</text>
+
+  <rect class="pkg-core" x="700" y="600" width="700" height="300" rx="6"/>
+  <text class="pkg" x="716" y="626">core/</text>
+  <text class="pkgsub" x="768" y="626">pure Python · no simulator, no hardware imports</text>
+
+  <rect class="card" x="716" y="640" width="216" height="120" rx="4"/>
+  <text class="card-t" x="728" y="660">kernels.py</text>
+  <text class="ln" x="728" y="680">class Kernel (frozen)</text>
+  <text class="ln" x="728" y="696">PRESETS (12) · preset()</text>
+  <text class="ln" x="728" y="712">common_size() → K</text>
+  <text class="ln" x="728" y="728">class KernelError</text>
+
+  <rect class="card" x="944" y="640" width="216" height="120" rx="4"/>
+  <text class="card-t" x="956" y="660">images.py</text>
+  <text class="ln" x="956" y="680">load_image(path, size)</text>
+  <text class="ln" x="956" y="696">generate_pattern(name)</text>
+  <text class="ln" x="956" y="712">validate_dimensions()</text>
+  <text class="ln" x="956" y="728">class ImageError</text>
+
+  <rect class="card" x="1172" y="640" width="212" height="120" rx="4"/>
+  <text class="card-t" x="1184" y="660">rendering.py</text>
+  <text class="ln" x="1184" y="680">normalise(frame, lo, hi)</text>
+  <text class="ln" x="1184" y="696">to_ascii(frame)</text>
+  <text class="ln" x="1184" y="712">save_grid(rows) → PNG</text>
+
+  <rect class="card" x="716" y="772" width="330" height="112" rx="4"/>
+  <text class="card-t" x="728" y="792">reference.py</text>
+  <text class="ln" x="728" y="812">convolve() · convolve_all()</text>
+  <text class="ln" x="728" y="828">apply_relu() · drop_bits()</text>
+  <text class="ln" x="728" y="844">MAC → round half-even &gt;&gt; DROP → int16</text>
+  <text class="note" x="728" y="866">the bit-accurate golden model</text>
+
+  <rect class="card" x="1058" y="772" width="326" height="112" rx="4"/>
+  <text class="card-t" x="1070" y="792">comparison.py</text>
+  <text class="ln" x="1070" y="812">class Verdict · Verdict.of(hw, ref)</text>
+  <text class="ln" x="1070" y="828">class LaneComparison · one kernel</text>
+  <text class="ln" x="1070" y="844">class RunComparison · build()</text>
+  <text class="ln" x="1070" y="860">rectified() · grid_rows() · failures()</text>
+  <text class="note" x="1070" y="876">verdicts fixed from raw frames</text>
+
+  <!-- ===================== external ===================== -->
+  <text class="cap" x="1400" y="942" text-anchor="end">EXTERNAL · RUN DIRECTORY AND QUESTASIM</text>
+
+  <!-- hardware -> run directory / QuestaSim -->
+  <path class="edge" d="M120 990V884" marker-end="url(#ah)"/>
+  <text class="edge-t" x="114" y="944" text-anchor="end">parse_results()</text>
+  <path class="edge" d="M208 884V990" marker-end="url(#ah)"/>
+  <text class="edge-t" x="216" y="944">write_stimulus()</text>
+  <path class="edge ctl" d="M500 884V930H700V950" marker-end="url(#ah)"/>
+  <text class="edge-t" x="600" y="924" text-anchor="middle">execute(commands())</text>
+
+  <rect class="pkg-run" x="40" y="950" width="580" height="116" rx="6"/>
+  <text class="pkg" x="56" y="974">run directory</text>
+  <text class="pkgsub" x="184" y="974">sw/.run, or a pytest tmp dir</text>
+
+  <rect class="card-contract" x="56" y="990" width="128" height="60" rx="4"/>
+  <text class="file-t" x="68" y="1014">features.txt</text>
+  <text class="ln" x="68" y="1032">OUT K DROP, rows</text>
+  <rect class="card-contract" x="196" y="990" width="128" height="60" rx="4"/>
+  <text class="file-t" x="208" y="1014">stimulus.txt</text>
+  <text class="ln" x="208" y="1032">N K lanes, data</text>
+  <rect class="card-contract" x="336" y="990" width="120" height="60" rx="4"/>
+  <text class="file-t" x="348" y="1014">sim.log</text>
+  <text class="ln" x="348" y="1032">STATUS: OK</text>
+  <rect class="card-contract" x="468" y="990" width="120" height="60" rx="4"/>
+  <text class="file-t" x="480" y="1014">work/</text>
+  <text class="ln" x="480" y="1032">compiled RTL</text>
+
+  <rect class="pkg-questa" x="640" y="950" width="760" height="116" rx="6"/>
+  <text class="pkg" x="656" y="974">QuestaSim</text>
+  <text class="pkgsub" x="744" y="974">vsim -c -gINPUT_SIZE -gWINDOW_SIZE -gNUM_KERNELS</text>
+
+  <rect class="card" x="656" y="996" width="100" height="48" rx="4"/>
+  <text class="card-t" x="668" y="1016">compile.f</text>
+  <text class="ln" x="668" y="1034">rtl.f + tb.f</text>
+  <path class="edge" d="M656 1020H588" marker-end="url(#ah)"/>
+  <text class="edge-t" x="622" y="1012" text-anchor="middle">vlog</text>
+
+  <rect class="card" x="772" y="982" width="612" height="76" rx="4"/>
+  <text class="card-t" x="784" y="999">conv_image_tb.sv</text>
+  <rect class="card" x="784" y="1008" width="88" height="36" rx="3"/>
+  <text class="ln-ink" x="828" y="1030" text-anchor="middle">read_stimulus</text>
+  <rect class="card" x="884" y="1008" width="88" height="36" rx="3"/>
+  <text class="ln-ink" x="928" y="1030" text-anchor="middle">push_weights</text>
+  <rect class="card" x="984" y="1008" width="88" height="36" rx="3"/>
+  <text class="ln-ink" x="1028" y="1030" text-anchor="middle">stream_frame</text>
+  <rect class="chip-dut" x="1084" y="1008" width="88" height="36" rx="3"/>
+  <text class="ln-ink" x="1128" y="1030" text-anchor="middle">conv_system</text>
+  <rect class="card" x="1184" y="1008" width="88" height="36" rx="3"/>
+  <text class="ln-ink" x="1228" y="1030" text-anchor="middle">capture</text>
+  <rect class="card" x="1284" y="1008" width="88" height="36" rx="3"/>
+  <text class="ln-ink" x="1328" y="1030" text-anchor="middle">write_results</text>
+  <path class="edge" d="M872 1026H884" marker-end="url(#ah)"/>
+  <path class="edge" d="M972 1026H984" marker-end="url(#ah)"/>
+  <path class="edge" d="M1072 1026H1084" marker-end="url(#ah)"/>
+  <path class="edge" d="M1172 1026H1184" marker-end="url(#ah)"/>
+  <path class="edge" d="M1272 1026H1284" marker-end="url(#ah)"/>
+
+  <!-- run directory <-> testbench -->
+  <path class="edge" d="M300 1050V1090H828V1044" marker-end="url(#ah)"/>
+  <text class="edge-t" x="560" y="1084" text-anchor="middle">+stim · $fscanf</text>
+  <path class="edge" d="M1328 1044V1120H120V1050" marker-end="url(#ah)"/>
+  <text class="edge-t" x="720" y="1114" text-anchor="middle">+result · $fwrite</text>
+
+  <!-- ===================== footer ===================== -->
+  <text class="footer-strong" x="40" y="1172">Import rules, enforced by tests/unit/test_architecture.py</text>
+  <text class="footer" x="40" y="1192">core/ imports nothing else in conv_lab · hardware/ imports core/, but never reference or comparison</text>
+  <text class="footer" x="40" y="1210">harness.py imports core/ and hardware/ · cli/ and the regression may import everything below them</text>
+
+  <rect class="card" x="960" y="1150" width="440" height="92" rx="4"/>
+  <text class="cap" x="976" y="1170">LEGEND</text>
+  <path class="edge" d="M976 1186H1016" marker-end="url(#ah)"/>
+  <text class="legend" x="1026" y="1190">call or data</text>
+  <path class="edge ctl" d="M976 1208H1016" marker-end="url(#ah)"/>
+  <text class="legend" x="1026" y="1212">runs a process</text>
+  <rect class="card-contract" x="976" y="1224" width="40" height="14" rx="2"/>
+  <text class="legend" x="1026" y="1235">Python–SV contract</text>
+  <rect class="pkg-hub" x="1190" y="1180" width="40" height="14" rx="2"/>
+  <text class="legend" x="1240" y="1191">shared pipeline</text>
+  <rect class="chip-dut" x="1190" y="1202" width="40" height="14" rx="2"/>
+  <text class="legend" x="1240" y="1213">device under test</text>
+  <rect class="pkg-core" x="1190" y="1224" width="40" height="14" rx="2"/>
+  <text class="legend" x="1240" y="1235">package</text>
+</svg>

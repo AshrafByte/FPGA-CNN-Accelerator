@@ -1,8 +1,8 @@
 # conv_lab
 
 Pick an image, pick a kernel, run the convolution **on the SystemVerilog
-testbench**, and see the hardware's output next to the input — checked
-bit-for-bit against a software model of the same pipeline.
+testbench**, and see the hardware's output next to the Python reference
+model's — both from one run, checked bit for bit.
 
 ```
 image (N x N uint8) ─┐
@@ -13,11 +13,14 @@ kernel(s) ───────────┘                   (conv_system)  
 ## Install
 
 ```bash
-python -m pip install -r sw/requirements.txt
+cd sw
+uv sync                                   # numpy, pillow, and pytest from the dev group
+python -m pip install numpy pillow pytest # or the same without uv
 ```
 
 Plus QuestaSim, with `vlib`/`vlog`/`vsim` on `PATH`. It is the only supported
-simulator; without it, only `--reference` works.
+simulator. Without it, `--reference` shows the model alone and the hardware
+regression skips itself.
 
 ## Use
 
@@ -25,7 +28,7 @@ simulator; without it, only `--reference` works.
 cd sw
 python -m conv_lab                                    # interactive
 python -m conv_lab --list-kernels                     # what's available
-python -m conv_lab --image photo.jpg --size 64 --kernel sobel_x
+python -m conv_lab --image photo.jpg --size 64 --kernel sobel_x --png compare.png
 python -m conv_lab --pattern circle --size 32 --kernel sobel_x --kernel sobel_y
 python -m conv_lab --pattern ramp --size 16 --weights '1 0 -1; 2 0 -2; 1 0 -1'
 python -m conv_lab --pattern checker --size 32 --kernel laplacian --png out.png --csv out.csv
@@ -50,19 +53,57 @@ weights accept whatever you paste:
 Exit status is 0 when every feature matched the model, 1 when the hardware
 disagreed or the simulator failed, 2 for bad input.
 
-## Two compute paths
+## One run, both results
 
-| | computes with | needs Questa | prints |
-| --- | --- | --- | --- |
-| default | `conv_image_tb` on the RTL, then checks it | yes | `hardware` + `model` + `MATCH`/`MISMATCH` |
-| `--reference` | the Python model only | no | `model` |
+Every default run simulates the frame on `conv_image_tb` **and** computes it
+with the reference model, then puts them side by side. Per kernel you get the
+stats for both, a `MATCH`/`MISMATCH` verdict, and an ASCII
+`input | hardware | reference` preview; the run exits non-zero if any kernel
+disagrees. `--png` writes the same comparison as an image, one row per kernel,
+with each hardware label carrying its verdict. `--csv` writes one file per
+kernel and source.
 
-`--reference` swaps the testbench out for `reference.convolve`. Same arithmetic,
-same geometry rules, same output frames — the model is bit-accurate, so the
-numbers are what the hardware would emit. What is missing is any *evidence* that
-the RTL agrees, so nothing was near the DUT and no verdict is printed. Use it to
-try kernels quickly, or to see what a preset does before committing simulation
-time; use the default path when you need the RTL checked.
+Hardware and reference always share one grey scale. Normalised separately, a
+single stray hardware value would stretch its own panel, so matching regions
+would look different — or mismatched ones would look the same.
+
+`--reference` skips the simulator and shows the model alone: same arithmetic,
+same geometry rules, but no evidence that the RTL agrees, so no verdict is
+printed. Use it when Questa is not available.
+
+## ReLU
+
+`--relu` applies `max(0, x)` to the output, as the activation after a CNN
+convolution layer would:
+
+```bash
+python -m conv_lab --pattern circle --size 32 --kernel sobel_x --reference --relu
+```
+
+```
+without --relu:   min  -48   max  48   nonzero 160/900
+with    --relu:   min    0   max  48   nonzero  80/900
+```
+
+Exactly half the responses survive, because `sobel_x` on a symmetric shape
+produces a matched negative for every positive — the dark side of each edge is
+what gets zeroed.
+
+**ReLU is not part of the hardware.** `conv_system` has no activation stage; its
+feature bus is signed precisely so a downstream stage can make this decision.
+So on the testbench path the rectification happens *after* the hardware-vs-model
+check, never before — otherwise a hardware value of −5 and a model value of −9
+would both collapse to 0 and report `MATCH` on a broken DUT. The verdict always
+runs on raw features, and the output says so. A test plants exactly that
+disagreement and asserts it is still caught.
+
+In the library it is a keyword on the model, off by default:
+
+```python
+reference.convolve(image, kernel)              # signed features
+reference.convolve(image, kernel, relu=True)   # ... then max(0, x)
+reference.apply_relu(features)                 # standalone
+```
 
 ## Presets
 
@@ -88,24 +129,40 @@ brightness. `--list-kernels` prints the gain for each.
 ## Interface to the hardware
 
 ```python
-from conv_lab import preset, run
-from conv_lab.imaging import load_image
+from conv_lab import Harness, QuestaTestbench, load_image, preset
 
-image  = load_image("photo.jpg", 64)      # (64, 64) uint8
-result = run(image, [preset("sobel_x")])  # elaborate, stream one frame, read back
-result.features                           # (1, 62, 62) int32, signed features
+image   = load_image("photo.jpg", 64)            # (64, 64) uint8
+kernels = [preset("sobel_x"), preset("sobel_y")]
+
+harness = Harness(QuestaTestbench("sw/.run"))     # Harness() alone runs reference-only
+run = harness.run(image, kernels)                 # reference model + one simulated frame
+
+run.result.features                               # (2, 62, 62) int32 from the hardware
+run.comparison.all_match                          # every feature bit-exact?
+run.comparison.failures()                         # one line per disagreeing lane
 ```
 
-`run()` is the whole contract. It validates the geometry, writes the stimulus,
-elaborates `conv_system` for that exact shape, streams one frame, and parses the
-features back. It raises `TestbenchError` if the simulator is missing, the run
-fails, or the frame comes back short.
+`Harness.run()` is the run pipeline both front ends share. It validates the
+inputs, computes the reference frames, simulates the frame when a testbench is
+attached, and compares the two. The CLI adds flags and printing on top; the
+regression adds fixtures and asserts. Neither re-implements a run, so a change to
+what a run does reaches both.
+
+`QuestaTestbench.run()` is the hardware contract underneath. It writes the
+stimulus, elaborates `conv_system` for that exact shape, streams one frame and
+parses the features back, raising `TestbenchError` if the simulator is missing,
+the run fails, or the frame comes back short. An instance compiles the RTL on
+its first run; later runs only re-elaborate.
+
+`RunComparison` holds a verdict per kernel, fixed from the raw frames at
+construction; frames on a shared display scale; PNG rows; failure lines.
+`rectified()` applies ReLU to what is shown and can never change a verdict.
 
 | | |
 | --- | --- |
 | `image` | `(N, N)` `uint8`, square, `N > K`, `N <= 512` |
 | `kernels` | one or more `Kernel`, all the same odd size, weights in `[-128, 127]` |
-| returns | `TestbenchResult` with `features` as `(len(kernels), N-K+1, N-K+1)` `int32` |
+| returns | `HarnessRun`: `.comparison`, and `.result` (a `TestbenchResult`, `features` as `(len(kernels), N-K+1, N-K+1)` `int32`) or `None` without a testbench |
 
 Output is **valid-only** — no padding, so an N x N frame gives (N-K+1) squared
 features — and each value is already `MAC >> drop_bits` with round-half-to-even.
@@ -134,8 +191,8 @@ OUTPUT_SIZE NUM_KERNELS DROP
 
 Geometry cannot travel in the file: `INPUT_SIZE`, `WINDOW_SIZE` and
 `NUM_KERNELS` size the DUT at elaboration, so they are passed to `vsim` as `-g`
-overrides *and* repeated in the file header, which the testbench checks. A forgotten override is a clear error rather than a
-silently truncated image.
+overrides *and* repeated in the file header, which the testbench checks. A
+forgotten override is a clear error rather than a silently truncated image.
 
 The testbench is usable without Python:
 
@@ -165,7 +222,7 @@ golden model, the display — is in natural row-major order.
 
 This is the failure that hides: it is invisible on any symmetric kernel
 (`box_blur`, `gaussian_blur`, `laplacian`) and only shows up as a sign flip on
-`sobel_x`. `tests/test_conv_lab.py` replays the DUT's indexing in Python and
+`sobel_x`. `tests/unit/test_hardware.py` replays the DUT's indexing in Python and
 asserts the flip is what turns it back into a correlation.
 
 ## What the check actually proves
@@ -180,20 +237,98 @@ parameterisation. `DROP` is `$clog2(K**2)`, so the worst case is
 signed 16-bit range for every odd K. The clamp only starts earning its keep if
 `PIXEL_WIDTH` or `FEATURE_WIDTH` changes.
 
-## Layout
+## Regression
 
-```
-sw/conv_lab/kernels.py     presets, custom-weight parsing, range checks
-sw/conv_lab/imaging.py     loading, synthetic patterns, normalising, ASCII + PNG
-sw/conv_lab/reference.py   bit-accurate model of the datapath
-sw/conv_lab/testbench.py   the bridge: stimulus, simulator, results
-sw/conv_lab/display.py     side-by-side panels, stats, the verdict
-sw/conv_lab/cli.py         argument handling and the interactive flow
-sw/tests/                  everything checkable without a simulator
-```
+`tests/regression/test_hardware_regression.py` runs the testbench over many inputs and requires
+every feature of every lane to match the reference model. It is marked
+`hardware` and skips itself when `vsim` is not on `PATH`.
 
 ```bash
-cd sw && python -m pytest tests -q
+cd sw
+python -m pytest -m hardware                # the regression: 33 directed + 20 random frames
+python -m pytest -m hardware --seeds 200    # widen the random sweep
+python -m pytest -m hardware --save-images regression_results   # keep a PNG of every case
+python -m pytest -m "not hardware"          # fast unit tests, no simulator
+python -m pytest                            # everything
+```
+
+Each case is one simulation, so the suite spends them carefully: kernels travel
+as parallel lanes (all twelve presets cost a single frame), and the RTL is
+compiled once per session, so each case only re-elaborates for its own
+geometry. Run it serially — the cases share one Questa work directory.
+
+| Case | Frames | Targets |
+| --- | ---: | --- |
+| every preset on every pattern | 5 | all presets as 12 lanes, per synthetic pattern |
+| frame size | 10 | 4 (smallest legal), 16/17 and 32/33 (line-buffer counter width), odd sizes |
+| every tap position | 2 | 9 one-hot kernels at +16 and −128 — any tap-order bug shifts a lane |
+| extreme pixels and weights | 4 | black, white, pixel checker, noise against all-127, all-−128, alternating |
+| round-half-to-even ties | 1 | every pixel 0..255 through centre taps ±1, ±3, ±7 |
+| lane count | 9 | `NUM_KERNELS` 1–16, across the select bus's width steps |
+| window size | 2 | 5×5 and 7×7 |
+| randomised | `--seeds` | random size, image, window and 1–6 kernels, reproducible from the seed in the test id |
+
+When a case fails, its tmp directory keeps `stimulus.txt`, `features.txt`,
+`sim.log` and `mismatch.png` (input | hardware | reference | difference), and the
+message names every failing lane with its first differing feature and both values.
+
+`--save-images DIR` keeps every result, pass or fail, in a fresh
+`DIR/run-<timestamp>/` folder per session:
+
+- one PNG per case, a row per kernel: `lane: kernel | hardware: MATCH/MISMATCH |
+  reference | difference`. Hardware and reference share a grey scale; the
+  difference panel is solid black when they agree, so a mismatch lights up.
+- `summary.txt`, listing every case with its status, geometry and image file,
+  plus the disagreeing lanes for each failure.
+
+Earlier runs are never overwritten, and the summary is rewritten after each case,
+so it stays complete up to the last finished case if a run is interrupted. The
+folder path is printed at the end of the run.
+
+## Layout
+
+The folders are the architecture. Each layer may only import the layers above it
+in this list, and `tests/unit/test_architecture.py` fails the build if one does.
+
+```
+sw/
+├── conv_lab/
+│   ├── harness.py            Harness · the one run pipeline, where both sides meet
+│   ├── core/                 pure Python, no simulator
+│   │   ├── kernels.py        Kernel, PRESETS, common_size
+│   │   ├── images.py         load_image, generate_pattern, validate_dimensions
+│   │   ├── reference.py      the bit-accurate golden model
+│   │   ├── comparison.py     RunComparison · verdicts fixed from raw frames
+│   │   └── rendering.py      normalise, ASCII previews, PNG grids
+│   ├── hardware/             the only package that knows QuestaSim
+│   │   ├── testbench.py      QuestaTestbench · run directory, compile once
+│   │   ├── contract.py       stimulus.txt / features.txt formats, tap-order flip
+│   │   └── questa.py         vlib / vlog / vsim commands and the shell
+│   └── cli/                  a front end: flags, prompts, printing
+│       ├── app.py            argument parsing, main()
+│       ├── prompts.py        the interactive flow
+│       ├── report.py         HarnessRun → terminal, CSV, PNG
+│       └── terminal.py       rules, kernel cards, stats, ASCII layout
+└── tests/
+    ├── conftest.py           --seeds, --save-images, the image gallery
+    ├── unit/                 one file per module, plus test_architecture.py
+    └── regression/           test_hardware_regression.py (marker: hardware)
+```
+
+| Layer | May import | Never imports |
+| --- | --- | --- |
+| `core` | nothing else in `conv_lab` | `hardware`, `harness`, `cli` |
+| `hardware` | `core` | `core.reference`, `core.comparison`, `harness`, `cli` |
+| `harness` | `core`, `hardware` | `cli` |
+| `cli` | `core`, `hardware`, `harness` | — |
+
+The hardware side and the reference side meet only in `harness.py`, and the
+regression is a second front end on the same `Harness`.
+
+```bash
+cd sw
+python -m pytest tests/unit          # fast, no simulator
+python -m pytest -m hardware         # the hardware regression
 ```
 
 The hardware half lives in
@@ -215,4 +350,4 @@ NUM_KERNELS=1`. A 32x32 single-kernel run therefore still passes even if the
 `-g` overrides are silently ignored, because the defaults happen to be right.
 Size 16 makes a broken override fail loudly, with the testbench reporting the
 exact mismatch it saw. Once that passes, the geometry path is proven and any
-size works.
+size works. Then run the full regression: `python -m pytest -m hardware`.

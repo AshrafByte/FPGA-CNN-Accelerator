@@ -1,4 +1,4 @@
-"""Grayscale image input and rendering."""
+"""Grayscale frames going in: loading, synthetic patterns, and the geometry rules."""
 
 from __future__ import annotations
 
@@ -76,69 +76,3 @@ def generate_pattern(name: PatternName, size: int, *, seed: int = 0) -> np.ndarr
             raise ImageError(f"unknown pattern {name!r}; choose one of: {', '.join(PATTERNS)}")
 
     return np.broadcast_to(frame, (size, size)).astype(np.uint8)
-
-
-def normalise(features: np.ndarray) -> np.ndarray:
-    """Map signed feature values onto 0..255 for display.
-
-    Edge kernels produce negatives that would otherwise clip to black, so the
-    full observed range is stretched rather than simply clamped. A flat result
-    (a uniform frame through a zero-sum kernel) maps to mid-grey.
-    """
-    lo, hi = int(features.min()), int(features.max())
-    if hi == lo:
-        return np.full(features.shape, 128, dtype=np.uint8)
-    scaled = (features.astype(np.float64) - lo) * (255.0 / (hi - lo))
-    return scaled.round().clip(0, 255).astype(np.uint8)
-
-
-_RAMP: Final = " .:-=+*#%@"
-
-
-def to_ascii(frame: np.ndarray, width: int = 48) -> list[str]:
-    """Render a uint8 frame as ASCII rows, nearest-neighbour downsampled.
-
-    Two characters per pixel, so the result keeps roughly square proportions in
-    a terminal.
-    """
-    height, source_width = frame.shape
-    width = min(width, source_width)
-    height_out = max(round(height * width / source_width / 2), 1)
-
-    col_idx = (np.arange(width) * source_width // width).clip(0, source_width - 1)
-    row_idx = (np.arange(height_out) * height // height_out).clip(0, height - 1)
-    sampled = frame[np.ix_(row_idx, col_idx)]
-
-    levels = (sampled.astype(np.uint16) * (len(_RAMP) - 1) // 255).clip(0, len(_RAMP) - 1)
-    return ["".join(_RAMP[v] * 2 for v in row) for row in levels]
-
-
-def save_comparison(
-    source: np.ndarray,
-    outputs: dict[str, np.ndarray],
-    path: str | Path,
-    *,
-    scale: int = 4,
-    gap: int = 8,
-) -> Path:
-    """Write input and every output side by side as one PNG.
-
-    Panels are nearest-neighbour upscaled so individual pixels stay visible, and
-    the (smaller) output panels are top-aligned against the input.
-    """
-    panels = [np.kron(p, np.ones((scale, scale), dtype=np.uint8))
-              for p in (source, *outputs.values())]
-
-    height = max(p.shape[0] for p in panels)
-    width = sum(p.shape[1] for p in panels) + gap * (len(panels) - 1)
-    canvas = np.full((height, width), 255, dtype=np.uint8)
-
-    x = 0
-    for panel in panels:
-        canvas[: panel.shape[0], x : x + panel.shape[1]] = panel
-        x += panel.shape[1] + gap
-
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(canvas, mode="L").save(path)
-    return path

@@ -15,13 +15,15 @@ most 255 * 128 = 32640 - inside the 16-bit signed range for every odd K. An
 8-bit pixel path through this pipeline cannot saturate; the clamp only earns its
 keep if PIXEL_WIDTH or FEATURE_WIDTH changes.
 
-The tap-order quirk described in conv_image_tb lives in `testbench.pack_kernel`,
-not here: by the time a kernel reaches this model it is in natural row-major
-order and the model computes an ordinary correlation with it.
+The tap-order quirk described in conv_image_tb lives in
+`hardware.contract.pack_kernel`, not here: by the time a kernel reaches this
+model it is in natural row-major order and the model computes an ordinary
+correlation with it.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Final
 
 import numpy as np
@@ -42,14 +44,39 @@ def drop_bits(window: int) -> int:
     return max(accumulator_width(window) - FEATURE_WIDTH, 0)
 
 
-def convolve(image: np.ndarray, kernel: Kernel) -> np.ndarray:
+def convolve(image: np.ndarray, kernel: Kernel, *, relu: bool = False) -> np.ndarray:
     """Golden model: what the hardware must produce for this image and kernel.
 
     Returns an int32 array of shape (N-K+1, N-K+1) holding signed feature values
     already rounded and saturated to FEATURE_WIDTH bits.
+
+    `relu` appends the activation that would follow this layer in a CNN. It is
+    OFF by default and is NOT part of the hardware contract - conv_system has no
+    activation stage, so a rectified frame is a layer-level result, not
+    something the RTL can be checked against. See `apply_relu`.
     """
     mac = _valid_correlate(image, np.array(kernel.rows, dtype=np.int64))
-    return _round_saturate(mac, drop_bits(kernel.size))
+    features = _round_saturate(mac, drop_bits(kernel.size))
+    return apply_relu(features) if relu else features
+
+
+def apply_relu(features: np.ndarray) -> np.ndarray:
+    """max(0, x) - the activation a conv layer is normally followed by.
+
+    This is where the sign that conv_system carefully preserves gets discarded:
+    the signed feature bus exists so a downstream stage can make this decision,
+    not so the convolution can make it early.
+    """
+    return np.maximum(features, 0)
+
+
+def convolve_all(image: np.ndarray, kernels: Sequence[Kernel], *, relu: bool = False) -> np.ndarray:
+    """One golden frame per kernel, stacked as (len(kernels), N-K+1, N-K+1).
+
+    The same shape `QuestaTestbench.run` returns, so hardware and reference compare
+    lane for lane.
+    """
+    return np.stack([convolve(image, kernel, relu=relu) for kernel in kernels])
 
 
 def _valid_correlate(image: np.ndarray, weights: np.ndarray) -> np.ndarray:

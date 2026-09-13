@@ -31,9 +31,9 @@
 //
 //   The weights are loaded in the file's order, verbatim. Whoever writes the
 //   file therefore owns the flip: to get a textbook correlation the caller
-//   must send each kernel row reversed. conv_lab.testbench.pack_kernel does
-//   exactly that; this module deliberately does not, so the file format stays
-//   a literal picture of the kernel_register contents.
+//   must send each kernel row reversed. conv_lab.hardware.contract.pack_kernel
+//   does exactly that; this module deliberately does not, so the file format
+//   stays a literal picture of the kernel_register contents.
 //
 // Output scaling:
 //   round_saturate drops ACCUM_WIDTH-FEATURE_WIDTH bits, so a recorded

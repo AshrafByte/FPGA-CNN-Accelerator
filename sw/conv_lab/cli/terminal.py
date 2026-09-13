@@ -1,13 +1,11 @@
-"""Terminal presentation: side-by-side previews, stats, and the hardware-vs-model verdict."""
+"""Terminal text formatting: rules, kernel cards, stats and ASCII previews."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 
-from .imaging import normalise, to_ascii
-from .kernels import Kernel
+from ..core.kernels import Kernel
+from ..core.rendering import to_ascii
 
 RULE_WIDTH = 78
 PANEL_GAP = 3
@@ -32,15 +30,15 @@ def panel_width(count: int, total: int = TOTAL_WIDTH) -> int:
 
 
 def side_by_side(panels: dict[str, np.ndarray], width: int | None = None) -> str:
-    """Render several frames as labelled ASCII columns, aligned at the top.
+    """Render display-ready uint8 frames as labelled ASCII columns, aligned at the top.
 
-    Frames are normalised independently: the output of an edge kernel is signed
-    and would otherwise be almost entirely black next to its input.
+    Normalising is the caller's job, because only the caller knows which frames
+    must share a scale - see core.rendering.normalise.
     """
     width = width or panel_width(len(panels))
     columns: list[list[str]] = []
     for label, frame in panels.items():
-        art = to_ascii(normalise(frame), width=width)
+        art = to_ascii(frame, width=width)
         rendered = max((len(line) for line in art), default=width)
         header = f"{label} ({frame.shape[1]}x{frame.shape[0]})"
         columns.append([header.center(rendered), *[line.ljust(rendered) for line in art]])
@@ -51,41 +49,6 @@ def side_by_side(panels: dict[str, np.ndarray], width: int | None = None) -> str
 
     separator = " " * PANEL_GAP
     return "\n".join(separator.join(parts) for parts in zip(*columns, strict=True))
-
-
-@dataclass(frozen=True, slots=True)
-class Comparison:
-    """How the hardware's frame compares to the golden model's."""
-
-    total: int
-    mismatches: int
-    max_abs_error: int
-    first_mismatch: tuple[int, int] | None
-
-    @property
-    def exact(self) -> bool:
-        return self.mismatches == 0
-
-    def summary(self) -> str:
-        if self.exact:
-            return f"MATCH      all {self.total} feature(s) bit-exact against the golden model"
-        row, col = self.first_mismatch or (-1, -1)
-        return (
-            f"MISMATCH   {self.mismatches}/{self.total} feature(s) differ, "
-            f"max |error| {self.max_abs_error}, first at row {row} col {col}"
-        )
-
-
-def compare(hardware: np.ndarray, golden: np.ndarray) -> Comparison:
-    diff = hardware.astype(np.int64) - golden.astype(np.int64)
-    wrong = np.flatnonzero(diff.ravel())
-    first = np.unravel_index(int(wrong[0]), diff.shape) if wrong.size else None
-    return Comparison(
-        total=int(diff.size),
-        mismatches=int(wrong.size),
-        max_abs_error=int(np.abs(diff).max()) if diff.size else 0,
-        first_mismatch=(int(first[0]), int(first[1])) if first else None,
-    )
 
 
 def kernel_card(kernel: Kernel, drop: int) -> str:

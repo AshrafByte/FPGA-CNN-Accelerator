@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.24",
-    "pillow>=10.0"
+    "pillow>=10.1",  # ImageFont.load_default(size=...) labels the PNG grids
 ]
 
 [dependency-groups]

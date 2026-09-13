@@ -13,6 +13,11 @@ MAX_DIMENSION: Final = 512  # a 512x512 frame is already ~10s of simulated strea
 PatternName = Literal["ramp", "checker", "circle", "bars", "noise"]
 PATTERNS: Final[tuple[PatternName, ...]] = ("ramp", "checker", "circle", "bars", "noise")
 
+#: Checker tiles and bars are never narrower than this. At 2 px - what size // 8
+#: gives a 16x16 frame - every 3x3 window straddles an edge, so an edge kernel
+#: returns a re-signed copy of the pattern instead of showing where its edges are.
+MIN_FEATURE_PX: Final = 4
+
 
 class ImageError(ValueError):
     """An image could not be loaded, or has dimensions the hardware cannot take."""
@@ -60,7 +65,7 @@ def generate_pattern(name: PatternName, size: int, *, seed: int = 0) -> np.ndarr
         case "ramp":
             frame = (rows * size + cols) * 255 // max(size * size - 1, 1)
         case "checker":
-            tile = max(size // 8, 1)
+            tile = max(size // 8, MIN_FEATURE_PX)
             frame = np.where((rows // tile + cols // tile) % 2 == 0, 230, 25)
         case "circle":
             centre = (size - 1) / 2
@@ -68,7 +73,7 @@ def generate_pattern(name: PatternName, size: int, *, seed: int = 0) -> np.ndarr
             dist = np.hypot(rows - centre, cols - centre)
             frame = np.where(dist <= radius, 220, 30)
         case "bars":
-            bar = max(size // 8, 1)
+            bar = max(size // 8, MIN_FEATURE_PX)
             frame = np.where((cols // bar) % 2 == 0, 240, 15) + np.zeros_like(rows)
         case "noise":
             frame = np.random.default_rng(seed).integers(0, 256, size=(size, size))

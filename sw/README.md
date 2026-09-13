@@ -63,9 +63,11 @@ disagrees. `--png` writes the same comparison as an image, one row per kernel,
 with each hardware label carrying its verdict. `--csv` writes one file per
 kernel and source.
 
-Hardware and reference always share one grey scale. Normalised separately, a
-single stray hardware value would stretch its own panel, so matching regions
-would look different — or mismatched ones would look the same.
+Hardware and reference are drawn on one grey scale, and the reference sets it:
+it is the known-good frame. A corrupted hardware frame therefore cannot change
+how the reference looks — its out-of-range values clip to black or white
+instead, which makes them easy to spot. Only a flat reference borrows the
+combined range, so hardware that differs from it still shows.
 
 `--reference` skips the simulator and shows the model alone: same arithmetic,
 same geometry rules, but no evidence that the RTL agrees, so no verdict is
@@ -247,6 +249,8 @@ every feature of every lane to match the reference model. It is marked
 cd sw
 python -m pytest -m hardware                # the regression: 33 directed + 20 random frames
 python -m pytest -m hardware --seeds 200    # widen the random sweep
+python -m pytest -m hardware --sizes 16,32,64   # run the size-independent cases at each size
+python -m pytest -m hardware --relu         # rectify the saved images (verdicts stay raw)
 python -m pytest -m hardware --save-images regression_results   # keep a PNG of every case
 python -m pytest -m "not hardware"          # fast unit tests, no simulator
 python -m pytest                            # everything
@@ -259,25 +263,25 @@ geometry. Run it serially — the cases share one Questa work directory.
 
 | Case | Frames | Targets |
 | --- | ---: | --- |
-| every preset on every pattern | 5 | all presets as 12 lanes, per synthetic pattern |
+| every preset on every pattern | 5 × sizes | all presets as 12 lanes, per synthetic pattern |
 | frame size | 10 | 4 (smallest legal), 16/17 and 32/33 (line-buffer counter width), odd sizes |
-| every tap position | 2 | 9 one-hot kernels at +16 and −128 — any tap-order bug shifts a lane |
-| extreme pixels and weights | 4 | black, white, pixel checker, noise against all-127, all-−128, alternating |
+| every tap position | 2 × sizes | 9 one-hot kernels at +16 and −128 — any tap-order bug shifts a lane |
+| extreme pixels and weights | 4 × sizes | black, white, pixel checker, noise against all-127, all-−128, alternating |
 | round-half-to-even ties | 1 | every pixel 0..255 through centre taps ±1, ±3, ±7 |
-| lane count | 9 | `NUM_KERNELS` 1–16, across the select bus's width steps |
-| window size | 2 | 5×5 and 7×7 |
+| lane count | 9 × sizes | `NUM_KERNELS` 1–16, across the select bus's width steps |
+| window size | 2 × sizes | 5×5 and 7×7 (sizes too small for the window are skipped) |
 | randomised | `--seeds` | random size, image, window and 1–6 kernels, reproducible from the seed in the test id |
 
 When a case fails, its tmp directory keeps `stimulus.txt`, `features.txt`,
-`sim.log` and `mismatch.png` (input | hardware | reference | difference), and the
+`sim.log` and `mismatch.png` (input | hardware | reference), and the
 message names every failing lane with its first differing feature and both values.
 
 `--save-images DIR` keeps every result, pass or fail, in a fresh
 `DIR/run-<timestamp>/` folder per session:
 
 - one PNG per case, a row per kernel: `lane: kernel | hardware: MATCH/MISMATCH |
-  reference | difference`. Hardware and reference share a grey scale; the
-  difference panel is solid black when they agree, so a mismatch lights up.
+  reference`, on the reference's grey scale, so wrong hardware values clip to
+  black or white.
 - `summary.txt`, listing every case with its status, geometry and image file,
   plus the disagreeing lanes for each failure.
 
@@ -286,6 +290,8 @@ so it stays complete up to the last finished case if a run is interrupted. The
 folder path is printed at the end of the run.
 
 ## Layout
+
+![conv_lab architecture: the cli and regression front ends call Harness, which joins the core and hardware packages; hardware drives QuestaSim through the run directory](architecture.svg)
 
 The folders are the architecture. Each layer may only import the layers above it
 in this list, and `tests/unit/test_architecture.py` fails the build if one does.

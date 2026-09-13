@@ -6,3 +6,14 @@ dependencies = [
     "numpy>=1.24",
     "pillow>=10.0"
 ]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers"
+markers = [
+    "hardware: simulates conv_image_tb under QuestaSim; skipped when vsim is not on PATH",
+]

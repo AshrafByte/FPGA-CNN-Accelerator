@@ -9,6 +9,7 @@ divisor. The divisor is effectively supplied by the pipeline itself: see
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final, Self
 
@@ -174,3 +175,20 @@ def preset(name: str) -> Kernel:
         raise KernelError(
             f"unknown preset {name!r}; choose one of: {', '.join(PRESETS)}"
         ) from None
+
+
+def common_size(kernels: Sequence[Kernel]) -> int:
+    """The one window size every kernel in a run shares.
+
+    conv_system has a single WINDOW_SIZE, so a run can mix any kernels as long as
+    they are all the same size.
+    """
+    if not kernels:
+        raise KernelError("no kernels given")
+    sizes = sorted({kernel.size for kernel in kernels})
+    if len(sizes) != 1:
+        raise KernelError(
+            "all kernels in one run must be the same size, got "
+            + ", ".join(f"{size}x{size}" for size in sizes)
+        )
+    return sizes[0]

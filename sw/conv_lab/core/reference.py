@@ -5,8 +5,10 @@ reproduce three things exactly, none of which is plain 2D convolution:
 
   * a signed multiply-accumulate over a valid-only (no padding) window, so the
     output is (N - K + 1) square;
-  * round_saturate's round-half-to-EVEN on the drop of ACCUM_WIDTH-FEATURE_WIDTH
-    low bits - not truncation, and not round-half-away-from-zero;
+  * round_saturate's round-half-UP on the drop of ACCUM_WIDTH-FEATURE_WIDTH low
+    bits, i.e. floor((MAC + 2**(DROP-1)) / 2**DROP): an exact .5 tie always goes
+    toward +infinity (4.5 -> 5, -4.5 -> -4) - not truncation, not
+    round-half-to-even, and not round-half-away-from-zero;
   * saturation into the signed FEATURE_WIDTH range.
 
 The clamp is modelled but, for this parameterisation, unreachable. DROP is
@@ -94,12 +96,15 @@ def _valid_correlate(image: np.ndarray, weights: np.ndarray) -> np.ndarray:
 
 
 def _round_saturate(values: np.ndarray, drop: int) -> np.ndarray:
-    """round_saturate: round-half-to-even on values / 2**drop, then clamp."""
+    """round_saturate: round half up on values / 2**drop, then clamp.
+
+    The RTL keeps the truncated value and the guard bit (the first discarded bit,
+    remainder >= half) and adds the guard bit: floor((x + 2**(drop-1)) / 2**drop).
+    """
     if drop > 0:
         quotient = values >> drop                     # floor, toward -inf
         remainder = values - (quotient << drop)       # exact, always 0..2**drop-1
         half = 1 << (drop - 1)
-        round_up = (remainder > half) | ((remainder == half) & (quotient & 1).astype(bool))
-        values = quotient + round_up
+        values = quotient + (remainder >= half)       # tie -> up
     limit = 1 << (FEATURE_WIDTH - 1)
     return np.clip(values, -limit, limit - 1).astype(np.int32)

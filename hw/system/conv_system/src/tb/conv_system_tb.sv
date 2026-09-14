@@ -26,11 +26,14 @@
 //   gets checked.
 //
 //   ReLU placement. relu_unit sits AFTER round_saturate, so it clamps the
-//   narrowed feature, not the raw accumulator. The distinction is observable:
-//   an accumulator that saturates negative gives MIN_FEAT, and only then
-//   becomes 0 - clamping first would have lost the saturation entirely. The
-//   model therefore applies the stages in that exact order, and never folds
-//   the clamp into the MAC.
+//   narrowed feature rather than the raw accumulator. This is a COST choice,
+//   not a numerical one: the two orders are provably equivalent, because
+//   round_saturate is monotonic and maps 0 to 0, so relu(rs(x)) == rs(relu(x))
+//   for every x (checked exhaustively over all 2**20 accumulator values).
+//   Placing it second just makes the clamp FEATURE_WIDTH bits wide instead of
+//   ACCUM_WIDTH. The model mirrors the RTL's order anyway - not because the
+//   result would differ, but so the two stay comparable stage by stage if a
+//   future parameterisation breaks the equivalence.
 //
 //   ReLU is a pipeline stage, not a mux, so ENABLE_RELU=1 makes every lane one
 //   cycle deeper. Nothing here depends on that: the checks are on order and
@@ -64,11 +67,20 @@ module conv_system_tb;
 
    parameter int NUM_KERNELS = 2;      // override with vsim -gNUM_KERNELS=<n>
    parameter bit ENABLE_RELU = 1'b1;   // override with vsim -gENABLE_RELU=0
+   parameter int WINDOW_SIZE = 3;      // override with vsim -gWINDOW_SIZE=<n>
+   parameter int INPUT_SIZE  = 32;     // override with vsim -gINPUT_SIZE=<n>; spec minimum is 32
+   // 0: round half to even (rtl_low_area and earlier builds)
+   // 1: round half up, i.e. floor((x + 2^(DROP-1)) / 2^DROP) - conv_system in
+   //    hw/ and every experiments build (default)
+   parameter int ROUND_MODE  = 1;
+   // 1: stall the input stream - i_pixel_valid drops for random 1..3-cycle gaps
+   // (and an occasional 20-cycle gap) mid-row, mid-frame and at row
+   // boundaries, with junk on i_data while it is low. The expected features
+   // do not change: order and count must survive any stall pattern.
+   parameter bit STALL       = 1'b0;
 
    localparam time CLK_PERIOD    = 10ns;
    localparam int  PIXEL_WIDTH   = 8;
-   localparam int  WINDOW_SIZE   = 3;
-   localparam int  INPUT_SIZE    = 8;
    localparam int  FEATURE_WIDTH = 16;
 
    localparam int WINDOW_ELEMENTS = WINDOW_SIZE ** 2;
@@ -179,8 +191,10 @@ module conv_system_tb;
       return accum_t'(sum);
    endfunction
 
-   // round_saturate, from the definition: round-half-to-even on value/2^DROP,
-   // then clamp. Verified exhaustively against the RTL over all 2^20 inputs.
+   // round_saturate, from the definition, on value/2^DROP: ROUND_MODE 1 (default)
+   // rounds half up, floor((value + 2^(DROP-1)) / 2^DROP); ROUND_MODE 0 rounds
+   // half to even (older builds). Then clamp. Verified exhaustively against the
+   // RTL over all 2^20 inputs.
    function automatic feature_t model_round_saturate(accum_t value);
       int v = int'(value);
       int q, rem, half;
@@ -191,7 +205,10 @@ module conv_system_tb;
       q    = v >>> DROP;          // floor division toward -inf
       rem  = v - (q <<< DROP);    // exact remainder, always 0..2^DROP-1
 
-      if (rem > half || (rem == half && q[0])) q++;   // tie -> make even
+      if (ROUND_MODE == 1) begin
+         if (rem >= half) q++;                        // tie -> up
+      end
+      else if (rem > half || (rem == half && q[0])) q++;   // tie -> make even
       if (q > MAX_FEAT) q = MAX_FEAT;
       if (q < MIN_FEAT) q = MIN_FEAT;
       return feature_t'(q);
@@ -264,6 +281,19 @@ module conv_system_tb;
    task automatic stream_frame();
       for (int r = 0; r < INPUT_SIZE; r++)
          for (int c = 0; c < INPUT_SIZE; c++) begin
+            if (STALL) begin
+               if ($urandom_range(0, 99) == 0)
+                  repeat (20) begin
+                     i_pixel_valid <= 1'b0;
+                     i_data        <= data_t'($urandom);
+                     @(posedge clk);
+                  end
+               while ($urandom_range(0, 3) == 0) begin
+                  i_pixel_valid <= 1'b0;
+                  i_data        <= data_t'($urandom);
+                  @(posedge clk);
+               end
+            end
             i_pixel_valid <= 1'b1;
             i_data        <= tb_image[r][c];
             @(posedge clk);
@@ -349,9 +379,13 @@ module conv_system_tb;
       weight_t laplacian [WINDOW_ELEMENTS];
 
       for (int i = 0; i < WINDOW_ELEMENTS; i++) ascending[i] = weight_t'(i + 1);
-      laplacian = '{-8'sd1, -8'sd1, -8'sd1,
-                    -8'sd1,  8'sd8, -8'sd1,
-                    -8'sd1, -8'sd1, -8'sd1};
+      // Generalised laplacian: -1 everywhere, WINDOW_ELEMENTS-1 at the centre
+      // tap, so the taps sum to zero. At WINDOW_SIZE=3 this is exactly the
+      // classic {-1,-1,-1, -1,8,-1, -1,-1,-1}. The centre weight must fit int8:
+      // exact up to WINDOW_SIZE=11, clamped to +127 above that (the kernel
+      // then no longer sums to zero, which the test does not rely on).
+      for (int i = 0; i < WINDOW_ELEMENTS; i++) laplacian[i] = -8'sd1;
+      laplacian[WINDOW_ELEMENTS/2] = weight_t'((WINDOW_ELEMENTS - 1 > 127) ? 127 : WINDOW_ELEMENTS - 1);
 
       $display("============================================================");
       $display("[TEST] conv_system: %0dx%0d image, %0dx%0d window, NUM_KERNELS=%0d (SEL_WIDTH=%0d)",
@@ -393,9 +427,11 @@ module conv_system_tb;
       for (int k = 0; k < NUM_KERNELS; k++) set_uniform(k, weight_t'(-(k + 1)));
       run_frame_test("relu_clamp", 0, FRAME_FEATURES * NUM_KERNELS);
 
-      // most negative accumulation reachable: 255 * -128 * 9 = -293760, inside
-      // 20-bit signed, so round_saturate emits a large negative feature that
-      // the ReLU must then clamp - saturation first, clamp second.
+      // largest-magnitude negative feature the design can produce: 255 * -128 * 9
+      // = -293760, which is -18360 after the >>4. round_saturate does NOT saturate
+      // here - at 8-bit pixels nothing can, since the post-shift magnitude is
+      // bounded by 255*128 = 32640 < 32767 for every odd K - it only narrows.
+      // The ReLU is what turns this into zero.
       fill_image(IMAGE_MAX);
       for (int k = 0; k < NUM_KERNELS; k++) set_uniform(k, weight_t'(-128 + k));
       run_frame_test("relu_negative_range", 0, FRAME_FEATURES * NUM_KERNELS);

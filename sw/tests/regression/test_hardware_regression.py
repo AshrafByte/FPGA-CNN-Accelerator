@@ -205,13 +205,15 @@ def test_extreme_pixels_and_weights(verify: Verify, image_kind, size):
     verify(_extreme_image(image_kind, size), EXTREME_KERNELS)
 
 
-def test_round_half_to_even_ties(verify: Verify):
+def test_round_half_up_ties(verify: Verify):
     """Every pixel value 0..255 through a centre tap of +-1, +-3 and +-7.
 
-    Each output is weight * pixel >> 4. With odd weights every residue mod 16
-    appears for both signs, including every exact .5 tie - the cases where
-    round-half-to-even and the more usual round-half-up disagree. The frame is
-    fixed at 18x18: exactly one 16x16 output per pixel value."""
+    Each output is weight * pixel >> 4, rounded half up. With odd weights every
+    residue mod 16 appears for both signs, including every exact .5 tie - the
+    positive ties with an even quotient are where round-half-up and
+    round-half-to-even disagree, the negative ties are where round-half-up and
+    round-half-away-from-zero disagree. The frame is fixed at 18x18: exactly one
+    16x16 output per pixel value."""
     image = np.zeros((18, 18), dtype=np.uint8)
     image[1:17, 1:17] = np.arange(256, dtype=np.uint8).reshape(16, 16)
     kernels = [Kernel(f"centre_{w:+d}", ((0, 0, 0), (0, w, 0), (0, 0, 0)))
@@ -232,8 +234,9 @@ def test_lane_count(verify: Verify, count, size):
 @pytest.mark.parametrize("window", [5, 7])
 def test_window_size(verify: Verify, window, size):
     """WINDOW_SIZE is a parameter, but every other directed case drives 3x3. A larger
-    window changes the adder tree's stage count, DROP, the line buffer's row count
-    and the output FIFO's depth all at once."""
+    window changes the MAC architecture conv_system builds (5x5 and 7x7 use the row
+    chains instead of the 3x3 single chain), DROP, the line buffer's row count and
+    the output FIFO's depth all at once."""
     if size <= window:
         pytest.skip(f"a {size}x{size} frame is too small for a {window}x{window} window")
     rng = np.random.default_rng(window)

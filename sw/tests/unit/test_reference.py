@@ -15,26 +15,46 @@ def test_identity_kernel_reproduces_the_interior_of_the_frame():
     assert np.array_equal(out, image[1:-1, 1:-1])
 
 
-def test_round_half_to_even_not_half_away_from_zero():
-    # box_blur sums a 3x3 window; a uniform frame of v gives a MAC of 9v, and
-    # 9v/16 lands exactly on .5 for v chosen so 9v % 16 == 8.
-    for value, expected in ((16, 9), (48, 27)):  # 144/16=9 exact, 432/16=27 exact
+SUM9 = Kernel("sum9", ((1, 1, 1), (1, 1, 1), (1, 1, 1)))
+NEG_SUM9 = Kernel("neg_sum9", ((-1, -1, -1), (-1, -1, -1), (-1, -1, -1)))
+
+
+def test_non_ties_round_to_the_nearest_value():
+    # A uniform frame of v through nine +-1 taps gives MAC = +-9v, and drop = 4
+    # divides by 16. Away from .5 every rounding mode agrees on the nearest value.
+    cases = (
+        (16, 9, -9),     # 144/16 = 9 exact
+        (112, 63, -63),  # 1008/16 = 63 exact
+        (81, 46, -46),   # 729/16 = 45.5625, above the half
+        (82, 46, -46),   # 738/16 = 46.125, below the half
+    )
+    for value, positive, negative in cases:
         frame = np.full((5, 5), value, dtype=np.uint8)
-        assert reference.convolve(frame, preset("box_blur"))[0, 0] == expected
-
-    # 9*80 = 720, 720/16 = 45 exact; 9*81 = 729 -> 45.5625 -> 46 (above the half)
-    assert reference.convolve(np.full((5, 5), 81, np.uint8), preset("box_blur"))[0, 0] == 46
-    # 9*112 = 1008 -> 63.0 exact
-    assert reference.convolve(np.full((5, 5), 112, np.uint8), preset("box_blur"))[0, 0] == 63
+        assert reference.convolve(frame, SUM9)[0, 0] == positive, value
+        assert reference.convolve(frame, NEG_SUM9)[0, 0] == negative, value
 
 
-def test_ties_round_toward_the_even_quotient():
-    # A single tap of 1 with drop=4: MAC == pixel, so the tie cases are pixels
-    # ending in 8 -> quotient .5 -> must land on the even neighbour.
-    tap = Kernel("single", ((0, 0, 0), (0, 1, 0), (0, 0, 0)))
-    for pixel, expected in ((8, 0), (24, 2), (40, 2), (56, 4)):
+def test_ties_round_half_up_toward_plus_infinity():
+    # A single centre tap of +-1 with drop = 4: MAC == +-pixel, so a pixel
+    # ending in 8 (mod 16) puts the quotient exactly on .5. Round half up sends
+    # every tie toward +infinity: 4.5 -> 5 (half-to-even would give 4) and
+    # -4.5 -> -4 (half-away-from-zero would give -5).
+    plus = Kernel("plus1", ((0, 0, 0), (0, 1, 0), (0, 0, 0)))
+    minus = Kernel("minus1", ((0, 0, 0), (0, -1, 0), (0, 0, 0)))
+    for pixel, positive, negative in ((8, 1, 0), (24, 2, -1), (40, 3, -2),
+                                      (56, 4, -3), (72, 5, -4)):
         frame = np.full((5, 5), pixel, dtype=np.uint8)
-        assert reference.convolve(frame, tap)[0, 0] == expected, pixel
+        assert reference.convolve(frame, plus)[0, 0] == positive, pixel
+        assert reference.convolve(frame, minus)[0, 0] == negative, pixel
+
+
+def test_rounding_is_floor_of_value_plus_half_for_every_20_bit_accumulator():
+    # Every value a 3x3 accumulator can hold, against the RTL's definition
+    # floor((x + 2**(DROP-1)) / 2**DROP), clamped to 16 bits.
+    drop = reference.drop_bits(3)
+    values = np.arange(-(1 << 19), 1 << 19, dtype=np.int64)
+    expected = np.clip((values + (1 << (drop - 1))) >> drop, -(1 << 15), (1 << 15) - 1)
+    assert np.array_equal(reference._round_saturate(values, drop), expected)
 
 
 def test_the_16_bit_clamp_is_unreachable_for_an_8_bit_pixel_path():

@@ -37,7 +37,7 @@
 //
 // Output scaling:
 //   round_saturate drops ACCUM_WIDTH-FEATURE_WIDTH bits, so a recorded
-//   feature is the MAC divided by 2^DROP with round-half-to-even, clamped to
+//   feature is the MAC divided by 2^DROP with round half up, clamped to
 //   FEATURE_WIDTH bits. DROP is echoed into the result header so the caller
 //   never has to rederive it.
 //

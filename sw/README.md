@@ -167,7 +167,7 @@ construction; frames on a shared display scale; PNG rows; failure lines.
 | returns | `HarnessRun`: `.comparison`, and `.result` (a `TestbenchResult`, `features` as `(len(kernels), N-K+1, N-K+1)` `int32`) or `None` without a testbench |
 
 Output is **valid-only** — no padding, so an N x N frame gives (N-K+1) squared
-features — and each value is already `MAC >> drop_bits` with round-half-to-even.
+features — and each value is already `MAC >> drop_bits` with round-half-up (ties toward +infinity).
 
 ### Files exchanged
 
@@ -230,7 +230,7 @@ asserts the flip is what turns it back into a correlation.
 ## What the check actually proves
 
 Each run compares the hardware's frame against `reference.convolve`, an
-independent model of MAC → round-half-to-even → saturate. The result is
+independent model of MAC → round-half-up → saturate. The result is
 `MATCH` only when every feature is bit-exact.
 
 Worth knowing: the 16-bit saturation clamp is **unreachable** with this
@@ -267,7 +267,7 @@ geometry. Run it serially — the cases share one Questa work directory.
 | frame size | 10 | 4 (smallest legal), 16/17 and 32/33 (line-buffer counter width), odd sizes |
 | every tap position | 2 × sizes | 9 one-hot kernels at +16 and −128 — any tap-order bug shifts a lane |
 | extreme pixels and weights | 4 × sizes | black, white, pixel checker, noise against all-127, all-−128, alternating |
-| round-half-to-even ties | 1 | every pixel 0..255 through centre taps ±1, ±3, ±7 |
+| round-half-up ties | 1 | every pixel 0..255 through centre taps ±1, ±3, ±7 (positive and negative .5 ties) |
 | lane count | 9 × sizes | `NUM_KERNELS` 1–16, across the select bus's width steps |
 | window size | 2 × sizes | 5×5 and 7×7 (sizes too small for the window are skipped) |
 | randomised | `--seeds` | random size, image, window and 1–6 kernels, reproducible from the seed in the test id |

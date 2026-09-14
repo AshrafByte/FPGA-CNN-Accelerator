@@ -1,0 +1,4 @@
+tag,benchmark,lut,lutram,ff,dsp,bram,resource_points,wns_ns,fmax_mhz,power_mw,dynamic_mw,static_mw,nets_matched,throughput_px_per_cycle,fom
+default,default,71,41,474,9,0,521,0.794,311.9,160.238,55.072,105.166,"NA",1,0.011978
+default,bars_sobel_x,71,41,474,9,0,521,0.794,311.9,120.232,15.642,104.590,"6%   (64/1026)",1,0.015964
+default,checker_sobel_y,71,41,474,9,0,521,0.794,311.9,110.921,6.464,104.457,"6%   (64/1026)",1,0.017304

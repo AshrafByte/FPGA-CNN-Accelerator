@@ -1,0 +1,4 @@
+conv_demo overlay (PYNQ-Z2, xc7z020clg400-1), built 2026-09-15 00:36 with 2018.2
+conv_system: WINDOW_SIZE=3 INPUT_SIZE=32 NUM_KERNELS=1 ENABLE_RELU=0
+fabric clock: FCLK_CLK0 100 MHz, WNS 2.620 ns
+conv_axi_lite: AXI4-Lite at 0x43C00000, range 1 MB (register map in fpga/board/rtl/conv_axi_lite.sv)

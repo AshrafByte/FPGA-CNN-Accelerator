@@ -168,3 +168,11 @@ regression_results/
 __pycache__/
 .pytest_cache/
 .idea/
+
+# FPGA flow (fpga/): checkpoints, the demo's Vivado project, simulator scratch
+# and logs. Reports (*.txt, summary.md, results.csv) and the PYNQ overlay
+# (conv_demo.bit / conv_demo.hwh) are kept.
+fpga/**/*.dcp
+fpga/bitstream/build/
+fpga/sim/build/
+fpga/logs/

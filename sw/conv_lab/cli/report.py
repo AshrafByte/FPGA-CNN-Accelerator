@@ -57,7 +57,7 @@ def report(run: HarnessRun, args: argparse.Namespace) -> bool:
     count = len(comparison.lanes)
     if result is None:
         print(f"reference model only (--reference, no simulator): signed MAC -> "
-              f"round-half-to-even >>{drop} -> saturate. Nothing was checked against the RTL.")
+              f"round-half-up >>{drop} -> saturate. Nothing was checked against the RTL.")
     else:
         print(f"Questa elaborated conv_system at INPUT_SIZE={size}, WINDOW_SIZE={window}, "
               f"NUM_KERNELS={count} in {result.elapsed_s:.1f}s   "

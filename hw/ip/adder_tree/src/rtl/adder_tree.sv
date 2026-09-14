@@ -49,6 +49,7 @@
 //   PRODUCT_WIDTH : Width of each input product.
 //   NUM_INPUTS    : Number of product values entering the reduction tree.
 //------------------------------------------------------------------------------
+(* use_dsp = "no" *)
 module adder_tree
    #(
       parameter int PRODUCT_WIDTH = 16,

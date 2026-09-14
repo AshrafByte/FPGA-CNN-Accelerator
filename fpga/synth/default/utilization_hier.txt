@@ -1,0 +1,34 @@
+Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
+| Date         : Tue Sep 15 00:26:53 2026
+| Host         : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/fpga/synth/default/utilization_hier.txt}
+| Design       : conv_system
+| Device       : 7z020clg400-1
+| Design State : Synthesized
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------------------------------+------------------+------------+------------+---------+------+-----+--------+--------+--------------+
+|                  Instance                  |      Module      | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | RAMB36 | RAMB18 | DSP48 Blocks |
++--------------------------------------------+------------------+------------+------------+---------+------+-----+--------+--------+--------------+
+| conv_system                                |            (top) |         71 |         30 |      24 |   17 | 474 |      0 |      0 |            9 |
+|   (conv_system)                            |            (top) |          0 |          0 |       0 |    0 |  25 |      0 |      0 |            0 |
+|   gen_kerenl_register[0].u_kernel_register |  kernel_register |          5 |          5 |       0 |    0 |  76 |      0 |      0 |            0 |
+|   gen_mac[0].gen_single_chain.u_mac        | mac_single_chain |          2 |          1 |       0 |    1 | 226 |      0 |      0 |            9 |
+|   gen_output_fifo[0].u_output_fifo         |      output_fifo |         37 |         13 |      24 |    0 |  30 |      0 |      0 |            0 |
+|   gen_round_sat[0].u_round_saturate        |   round_saturate |          2 |          2 |       0 |    0 |  35 |      0 |      0 |            0 |
+|   u_line_buffer                            |      line_buffer |         23 |          7 |       0 |   16 |   7 |      0 |      0 |            0 |
+|   u_window_generator                       | window_generator |          2 |          2 |       0 |    0 |  75 |      0 |      0 |            0 |
++--------------------------------------------+------------------+------------+------------+---------+------+-----+--------+--------+--------------+
+
+

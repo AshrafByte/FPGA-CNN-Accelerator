@@ -541,7 +541,7 @@ cd docs/presentation && typst compile --root .. slides.typ slides.pdf
 | Block diagrams | `docs/report/scripts/diagrams.py` → `docs/resources/diagrams/report_figures.drawio` → `export_diagrams.py` |
 | QuestaSim waveforms | `docs/report/scripts/waveform.py` |
 | Vivado xsim waveforms | `docs/report/scripts/vivado_waves.py` |
-| Rounding, saturation, sweep charts | `docs/report/scripts/rounding_analysis.m`, `sweep_charts.m` (MATLAB) |
+| Rounding, saturation, sweep charts | `docs/report/scripts/rounding_analysis.m`, `sweep_charts.m` (MATLAB; copies in `experiments/rounding/` and `experiments/sweep/`) |
 | Other charts | `docs/report/scripts/make_charts.py` |
 
 ---

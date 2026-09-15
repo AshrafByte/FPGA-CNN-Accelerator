@@ -28,6 +28,14 @@ Both are `hw/` with only `round_saturate` replaced (`src/round_saturate.sv`):
 | `round_half_even` | round to nearest, ties to even, both clamps built (the earlier design) |
 | `round_always_clamp` | round half up (as `hw/`) with the positive clamp built although it is unreachable |
 
+`rounding/rounding_analysis.m` (MATLAB, copy of `docs/report/scripts/rounding_analysis.m`) gives
+the numbers behind this choice: the error of truncation, round half up and round half to even over
+every accumulator value a 3x3 window of 8-bit data can reach and on real convolutions, and the
+saturation headroom of the 16-bit output for N = 2..17. Outputs go to `docs/report/figures/charts/`
+(`rounding_error.png`, `saturation_headroom.png`, `rounding_*.csv`).
+
+    matlab -batch "run('experiments/rounding/rounding_analysis.m')"   # from the repository root
+
 ## Checking a build in QuestaSim
 
 Every build compiles its own `conv_system_tb` (the variants use the `hw/` testbench):
@@ -75,9 +83,10 @@ recorded; after a failed build the larger sizes of that architecture are not con
   with `MAX_DSP 200`.
 
     python experiments/sweep/run_sweep.py                 # all, reusing finished builds
-    matlab -batch "run('docs/report/scripts/sweep_charts.m')"
+    matlab -batch "run('experiments/sweep/sweep_charts.m')"   # MATLAB R2024a, from the repository root
 
-Charts and tables land in `docs/report/figures/charts/sweep_*`.
+Charts and tables land in `docs/report/figures/charts/sweep_*`. `sweep/sweep_charts.m` is a copy of
+`docs/report/scripts/sweep_charts.m` (the report's figure script); both give the same output.
 
 ### Results (xc7z020, Vivado 2018.2, routed, 160 MHz)
 

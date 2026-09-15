@@ -34,6 +34,7 @@ fpga/
     ├── rtl/conv_demo_top.sv      block design wrapper + conv_axi_lite + LEDs
     ├── constraints/pynq_z2.xdc   user LEDs
     ├── tb/conv_axi_lite_tb.sv    self-checking wrapper testbench
+    ├── tests/test_conv_demo_driver.py   driver test against a register model (pytest, no board)
     └── pynq/conv_demo.py         board driver, golden model, command-line demo
         pynq/conv_demo.ipynb      Jupyter demo
 ```
@@ -120,9 +121,11 @@ reference. A SAIF is re-simulated only when an RTL source or the testbench is ne
 processing system; the FoM build above is the standalone 250 MHz one.
 
 **board_sim** - `board/tb/conv_axi_lite_tb.sv` drives the AXI wrapper exactly like the PYNQ
-driver (reset, kernels, pixel bursts, status polling, feature read-back) on three builds -
-3x3/32 with one and two lanes, 5x5/16 with ReLU - and compares every feature with a
-behavioural model.
+driver (one soft reset, kernels, pixel bursts, status polling, feature read-back) on three
+builds - 3x3/32 with one and two lanes, 5x5/16 with ReLU. Five frames follow the single
+reset with no reset between them (three with new kernels, one with the same kernels), then
+a sixth frame after a second soft reset; every feature is compared with a behavioural
+model, and OUT_COUNT, PIXEL_COUNT, WEIGHT_COUNT and FRAME_COUNT are checked per frame.
 
 ## Results - default build
 
@@ -131,17 +134,18 @@ Full tables: [reports/default/summary.md](reports/default/summary.md).
 
 | LUT | FF | DSP | BRAM | LUT + 50 DSP + 100 BRAM | WNS | Fmax |
 |---|---|---|---|---|---|---|
-| 71 | 474 | 9 | 0 | 521 | +0.794 ns | 311.9 MHz |
+| 78 | 521 | 9 | 0 | 528 | +0.728 ns | 305.6 MHz |
 
 | Workload | Total power | Dynamic | FoM |
 |---|---|---|---|
-| Bars + Sobel-X | 120.232 mW | 15.642 mW | **0.01596** |
-| Checker + Sobel-Y | 110.921 mW | 6.464 mW | **0.01730** |
-| Vectorless (reference only) | 160.238 mW | 55.072 mW | 0.01198 |
+| Bars + Sobel-X | 119.921 mW | 15.336 mW | **0.01579** |
+| Checker + Sobel-Y | 110.615 mW | 6.163 mW | **0.01712** |
+| Vectorless (reference only) | 159.860 mW | 54.699 mW | 0.01185 |
 
-The MAC is the single DSP48E1 chain (MAC_SEL 3). The standalone exploration runs of the
-same RTL (`ip/vivado`, sources read from another folder) placed one LUT fewer - 70 LUT,
-+0.757 ns, FoM 0.01597 / 0.01731; the difference is placement noise (-0.04% FoM). Only 6% of
+The MAC is the single DSP48E1 chain (MAC_SEL 3). The build streams frames back to back
+without a reset (`o_frame_done`); that frame protocol costs 7 LUTs over the single-frame
+build (71 LUT, +0.794 ns, FoM 0.01596 / 0.01730): a one-hot row ring and a flip-flop
+frame-end delay line add flip-flops only, and the FIFO's frame re-arm adds 6 LUTs. Only 7% of
 nets match the SAIF because registers absorbed into the DSP slices lose their RTL names;
 the rest of the activity is propagated by Vivado.
 
@@ -171,13 +175,19 @@ feature is stored in a block-RAM result memory per lane that the host reads back
 | 0x018 | WEIGHT | WO | next weight (int8), tap order |
 | 0x01C | PIXEL | WO | next pixel |
 | 0x020 | PIXELS4 | WO | four pixels, byte 0 first |
-| 0x024 / 0x028 / 0x02C | WEIGHT_COUNT / PIXEL_COUNT / OUT_COUNT | RO | counters since reset |
-| 0x030 / 0x034 | LATENCY / FRAME_CYCLES | RO | cycles from the first pixel to the first / last feature |
+| 0x024 | WEIGHT_COUNT | RO | weights accepted since reset |
+| 0x028 / 0x02C | PIXEL_COUNT / OUT_COUNT | RO | pixels / features of the current frame |
+| 0x030 / 0x034 | LATENCY / FRAME_CYCLES | RO | cycles from the frame's first pixel to its first / last feature |
+| 0x038 | FRAME_COUNT | RO | frames completed since reset (`o_frame_done` pulses) |
 | 0x10000 + (k << (IDX_BITS+2)) + 4i | feature i of lane k | RO | sign-extended int16 |
 
-One frame: `CTRL=1`, `CTRL=0`; per lane `KERNEL_SEL=k` and the N² weights, each kernel row
-written right to left (a new window column enters at column 0 - the same order as
-`sw/conv_lab` `pack_kernel`); the W² pixels; poll `STATUS[2]`; read the features.
+Start-up: `CTRL=1`, `CTRL=0` once; per lane `KERNEL_SEL=k` and the N² weights, each kernel
+row written right to left (a new window column enters at column 0 - the same order as
+`sw/conv_lab` `pack_kernel`). Every frame: the W² pixels; poll `STATUS[2]`; read the
+features. Frames follow each other **without a reset**: `STATUS[2]` is set by
+`conv_system`'s `o_frame_done` and cleared by the next frame's first pixel, which also
+restarts the per-frame counters. A new kernel can be written between frames. The result
+memory holds one frame, so read it before sending the next.
 
 LEDs: LD0 weights loaded, LD1 streaming, LD2 frame done, LD3 heartbeat.
 
@@ -188,8 +198,8 @@ LEDs: LD0 weights loaded, LD1 streaming, LD2 frame done, LD3 heartbeat.
 .\fpga\run.ps1 -Steps bitstream -K 2 -W 64      # other overlay configurations
 ```
 
-Default overlay (3x3, 32x32, one kernel): 805 LUT, 9 DSP, 0.5 BRAM tile for the whole
-demo (AXI interconnect, wrapper, result memory and conv_system), WNS +2.620 ns at 100 MHz,
+Default overlay (3x3, 32x32, one kernel): 813 LUT, 9 DSP, 0.5 BRAM tile for the whole
+demo (AXI interconnect, wrapper, result memory and conv_system), WNS +2.560 ns at 100 MHz,
 bitstream in about 7 minutes. `conv_demo.hwh` maps `M_AXI` at 0x43C00000-0x43CFFFFF with
 FCLK_CLK0 = 100 MHz. The power in `bitstream/reports/power.txt` includes the processing
 system and is not the FoM power, which comes from the standalone build above.
@@ -214,10 +224,21 @@ sudo python3 conv_demo.py --image photo.jpg --kernels sobel_x sobel_y --save edg
 Every hardware frame is compared feature by feature with the golden model in
 `conv_demo.py` (identical to `sw/conv_lab/core/reference.py`: valid correlation, round half
 up, 16-bit saturation); the script prints the mismatches per frame and exits with 1 on any.
+The driver resets the accelerator once when it opens the overlay; every frame after that
+streams without a reset, and a kernel is rewritten only when it changes.
 `python conv_demo.py --model-only` runs the model alone on any machine.
 
 ### Verification before the board
 
-- `board_sim`: all features of all lanes bit-exact through AXI on the three builds.
+- `board_sim`: all features of all lanes bit-exact through AXI on the three builds, over
+  five frames without a reset and a sixth after a soft reset.
+- `board/tests/test_conv_demo_driver.py`: the PYNQ driver against a register-level model of
+  `conv_axi_lite` + `conv_system` (no board needed). It checks that the driver resets once,
+  rewrites a kernel only when it changes, streams frames without a reset, sends each kernel
+  row in hardware tap order, and reads back two lanes with ReLU:
+
+```bash
+python -m pytest fpga/board/tests
+```
 - The demo's golden model was checked against `sw/conv_lab/core/reference.py` on 135
   frames (random kernels of 1x1 to 7x7 with and without ReLU, every demo kernel on every pattern).

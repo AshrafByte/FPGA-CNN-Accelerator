@@ -14,6 +14,12 @@ Every case is a real simulation, so the suite is built to spend them well:
 A frame runs through exactly the pipeline the CLI uses (conv_lab.harness), so a
 change to what a run does reaches this suite without touching it.
 
+The stream cases send several frames through one simulation after a single
+reset, back to back or with idle gaps, and compare every frame on its own: a
+line buffer or output FIFO that failed to re-arm at a frame boundary would
+smear one frame into the next. The testbench itself fails the run unless
+o_frame_done marks the last feature of every frame.
+
 Skipped automatically when vsim is not on PATH.
 
     pytest -m hardware                                   # the regression at 32x32
@@ -53,6 +59,7 @@ pytestmark = pytest.mark.hardware
 ARTIFACTS = ("stimulus.txt", "features.txt", "sim.log")
 
 Verify = Callable[[np.ndarray, Sequence[Kernel]], None]
+Stream = Callable[..., None]
 
 
 # --------------------------------------------------------------------------- #
@@ -81,6 +88,18 @@ def verify(harness: Harness, questa: QuestaTestbench, gallery: Gallery | None,
         check(harness, image, kernels, run_dir=questa.run_dir, case=request.node.name,
               keep=tmp_path, gallery=gallery, relu=relu)
     return _verify
+
+
+@pytest.fixture
+def stream(harness: Harness, questa: QuestaTestbench, gallery: Gallery | None,
+           request: pytest.FixtureRequest, tmp_path: Path) -> Stream:
+    """check_stream() bound to this test, like verify."""
+    relu = request.config.getoption("relu")
+
+    def _stream(frames: Sequence[np.ndarray], kernels: Sequence[Kernel], *, gap: int = 0) -> None:
+        check_stream(harness, frames, kernels, gap=gap, run_dir=questa.run_dir,
+                     case=request.node.name, keep=tmp_path, gallery=gallery, relu=relu)
+    return _stream
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
@@ -120,6 +139,42 @@ def check(harness: Harness, image: np.ndarray, kernels: Sequence[Kernel], *, run
         pytest.fail(
             f"{len(failures)} of {len(kernels)} lane(s) disagree on a {size}x{size} frame "
             f"(artifacts: {keep})\n  " + "\n  ".join(failures),
+            pytrace=False,
+        )
+
+
+def check_stream(harness: Harness, frames: Sequence[np.ndarray], kernels: Sequence[Kernel], *,
+                 gap: int, run_dir: Path, case: str, keep: Path, gallery: Gallery | None,
+                 relu: bool) -> None:
+    """Run several frames through one simulation and require every lane of every frame to match."""
+    size, window = frames[0].shape[0], kernels[0].size
+    geometry = (f"{f'{size}x{size}':>7}  {window}x{window}  {len(kernels):>2} kernel(s)  "
+                f"{len(frames)} frames, gap {gap}")
+
+    try:
+        runs = harness.run_stream(frames, kernels, gap=gap)
+    except TestbenchError as exc:
+        _preserve(run_dir, keep)
+        if gallery is not None:
+            gallery.record(case, "ERROR", geometry, details=str(exc).splitlines()[:1])
+        raise
+
+    problems: list[str] = []
+    for index, run in enumerate(runs):
+        failures = run.comparison.failures()
+        shown = run.comparison.rectified() if relu else run.comparison
+        if gallery is not None:
+            gallery.record(f"{case}[frame{index}]", "FAIL" if failures else "PASS", geometry,
+                           rows=shown.grid_rows(), details=failures)
+        if failures:
+            save_grid(shown.grid_rows(mismatched_only=True), keep / f"mismatch_frame{index}.png")
+            problems += [f"frame {index}: {line}" for line in failures]
+
+    if problems:
+        _preserve(run_dir, keep)
+        pytest.fail(
+            f"{len(problems)} lane(s) disagree across {len(frames)} streamed {size}x{size} frames "
+            f"(artifacts: {keep})\n  " + "\n  ".join(problems),
             pytrace=False,
         )
 
@@ -242,6 +297,46 @@ def test_window_size(verify: Verify, window, size):
     rng = np.random.default_rng(window)
     kernels = [random_kernel(rng, f"random{i}", window) for i in range(3)]
     verify(noise(size, seed=window), kernels)
+
+
+# --------------------------------------------------------------------------- #
+# Continuous streaming: several frames, one reset
+# --------------------------------------------------------------------------- #
+
+STREAM_KERNELS = [preset("sobel_x"), preset("sobel_y"), preset("laplacian_8"), preset("gaussian_blur")]
+
+
+@pytest.mark.parametrize("gap", [0, 5], ids=["back_to_back", "gap5"])
+def test_stream_every_pattern_without_reset(stream: Stream, gap, size):
+    """Every synthetic pattern as consecutive frames of one simulation after a single
+    reset. Back to back, the next frame's first pixel arrives on the cycle after the
+    previous frame's last one, while that frame's last rows are still in the pipeline
+    and its FIFO is still draining - the tightest frame boundary there is."""
+    stream([generate_pattern(p, size, seed=1) for p in PATTERNS], STREAM_KERNELS, gap=gap)
+
+
+@pytest.mark.parametrize("window", [5, 7])
+def test_stream_window_size(stream: Stream, window, size):
+    """The frame boundary with the row-chain MAC, whose latency (and so the delay of
+    the frame-end mark) differs from the 3x3 single chain."""
+    if size <= window:
+        pytest.skip(f"a {size}x{size} frame is too small for a {window}x{window} window")
+    rng = np.random.default_rng(200 + window)
+    kernels = [random_kernel(rng, f"random{i}", window) for i in range(2)]
+    stream([noise(size, seed=window + f) for f in range(3)], kernels)
+
+
+@pytest.mark.parametrize("stream_seed", range(4), ids=[f"stream{s}" for s in range(4)])
+def test_stream_randomised(stream: Stream, stream_seed):
+    """Random geometry, frame count, gap and lanes for a stream, reproducible from the id.
+    Frame sizes start at window + 1, where the output FIFO is smallest."""
+    rng = np.random.default_rng(1000 + stream_seed)
+    window = int(rng.choice([3, 3, 5]))
+    size = int(rng.integers(window + 1, 41))
+    frames = [rng.integers(0, 256, size=(size, size), dtype=np.uint8)
+              for _ in range(int(rng.integers(2, 5)))]
+    kernels = [random_kernel(rng, f"r{i}", window) for i in range(int(rng.integers(1, 5)))]
+    stream(frames, kernels, gap=int(rng.choice([0, 0, 1, 17])))
 
 
 # --------------------------------------------------------------------------- #

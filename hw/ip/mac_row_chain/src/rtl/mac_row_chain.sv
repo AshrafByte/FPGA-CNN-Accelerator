@@ -203,17 +203,26 @@ module mac_row_chain #(
          end : gen_later
 
          // An odd operand count at this level passes the last one through
-         // rather than building an adder for it.
+         // rather than building an adder for it. Chosen with a generate-if so
+         // the pass-through never elaborates the missing w_in[2*k+1].
          for (genvar k = 0; k < OUT_COUNT; k++) begin : gen_add
-            always_ff @(posedge clk or negedge rst_n) begin
-               if (!rst_n)
-                  r_level[k] <= '0;
-               else if (2*k + 1 < IN_COUNT)
-                  // Both operands sign-extended to OUT_WIDTH before the add.
-                  r_level[k] <= out_t'(w_in[2*k]) + out_t'(w_in[2*k+1]);
-               else
-                  r_level[k] <= out_t'(w_in[2*k]);
-            end
+            if (2*k + 1 < IN_COUNT) begin : gen_pair
+               always_ff @(posedge clk or negedge rst_n) begin
+                  if (!rst_n)
+                     r_level[k] <= '0;
+                  else
+                     // Both operands sign-extended to OUT_WIDTH before the add.
+                     r_level[k] <= out_t'(w_in[2*k]) + out_t'(w_in[2*k+1]);
+               end
+            end : gen_pair
+            else begin : gen_pass
+               always_ff @(posedge clk or negedge rst_n) begin
+                  if (!rst_n)
+                     r_level[k] <= '0;
+                  else
+                     r_level[k] <= out_t'(w_in[2*k]);
+               end
+            end : gen_pass
          end : gen_add
       end : gen_tree
    endgenerate

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/vrun.py - Verification regression runner
+common/script/vrun.py - Verification regression runner
 
 =================================================================================
 ASSUMPTIONS - if any of these don't hold, this script either won't work at all,
@@ -97,7 +97,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent   # common/script/vrun.py -> repo
 
 # Windows terminals sometimes report a non-UTF-8 stdout/stderr encoding,
 # which garbles any non-ASCII characters (box-drawing chars from a custom

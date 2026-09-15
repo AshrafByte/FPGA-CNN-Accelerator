@@ -1,7 +1,7 @@
 Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version     : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
-| Date             : Tue Sep 15 00:27:37 2026
+| Date             : Tue Sep 15 13:18:17 2026
 | Host             : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
 | Command          : report_power -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/fpga/reports/default/power_checker_sobel_y.txt}
 | Design           : conv_system
@@ -30,18 +30,18 @@ Table of Contents
 ----------
 
 +--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Total On-Chip Power (uW) | 110921.078                                                                                                                                                                     |
+| Total On-Chip Power (uW) | 110615.195                                                                                                                                                                     |
 | Design Power Budget (uW) | Unspecified*                                                                                                                                                                   |
 | Power Budget Margin (uW) | NA                                                                                                                                                                             |
-| Dynamic (uW)             | 6464.367                                                                                                                                                                       |
-| Device Static (uW)       | 104456.711                                                                                                                                                                     |
+| Dynamic (uW)             | 6162.852                                                                                                                                                                       |
+| Device Static (uW)       | 104452.344                                                                                                                                                                     |
 | Effective TJA (C/W)      | 11.5                                                                                                                                                                           |
 | Max Ambient (C)          | 83.7                                                                                                                                                                           |
 | Junction Temperature (C) | 26.3                                                                                                                                                                           |
 | Confidence Level         | Medium                                                                                                                                                                         |
 | Setting File             | ---                                                                                                                                                                            |
 | Simulation Activity File | F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/fpga/sim/build/default/checker_sobel_y/conv.saif |
-| Design Nets Matched      | 6%   (64/1026)                                                                                                                                                                 |
+| Design Nets Matched      | 7%   (73/1081)                                                                                                                                                                 |
 +--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 * Specify Design Power Budget using, set_operating_conditions -design_power_budget <value in Watts>
 
@@ -52,19 +52,19 @@ Table of Contents
 +--------------------------+------------+----------+-----------+-----------------+
 | On-Chip                  | Power (uW) | Used     | Available | Utilization (%) |
 +--------------------------+------------+----------+-----------+-----------------+
-| Clocks                   |  5564.600  |        3 |       --- |             --- |
-| Slice Logic              |    75.327  |      569 |       --- |             --- |
-|   Register               |    65.864  |      474 |    106400 |            0.45 |
-|   LUT as Logic           |     7.372  |       30 |     53200 |            0.06 |
+| Clocks                   |  5050.147  |        3 |       --- |             --- |
+| Slice Logic              |   258.395  |      623 |       --- |             --- |
+|   LUT as Logic           |   242.021  |       37 |     53200 |            0.07 |
+|   Register               |    14.283  |      521 |    106400 |            0.49 |
 |   LUT as Shift Register  |     2.091  |       17 |     17400 |            0.10 |
 |   Others                 |     0.000  |       11 |       --- |             --- |
 |   LUT as Distributed RAM |     0.000  |       24 |     17400 |            0.14 |
 |   CARRY4                 |     0.000  |        4 |     13300 |            0.03 |
-| Signals                  |   509.282  |      900 |       --- |             --- |
-| DSPs                     |    57.835  |        9 |       220 |            4.09 |
-| I/O                      |   257.325  |       30 |       125 |           24.00 |
-| Static Power             | 104456.711 |          |           |                 |
-| Total                    | 110921.078 |          |           |                 |
+| Signals                  |   587.577  |      952 |       --- |             --- |
+| DSPs                     |     2.386  |        9 |       220 |            4.09 |
+| I/O                      |   264.354  |       31 |       125 |           24.80 |
+| Static Power             | 104452.344 |          |           |                 |
+| Total                    | 110615.203 |          |           |                 |
 +--------------------------+------------+----------+-----------+-----------------+
 
 
@@ -150,19 +150,19 @@ Table of Contents
 +--------------------------------------------+------------+
 | Name                                       | Power (uW) |
 +--------------------------------------------+------------+
-| conv_system                                |  6464.369  |
-|   gen_kerenl_register[0].u_kernel_register |   781.836  |
-|   gen_mac[0].gen_single_chain.u_mac        |  2835.404  |
-|   gen_output_fifo[0].u_output_fifo         |   561.017  |
-|     gen_lutram.r_mem_reg_0_63_0_2          |    40.821  |
-|     gen_lutram.r_mem_reg_0_63_12_14        |    40.821  |
-|     gen_lutram.r_mem_reg_0_63_15_15        |    40.821  |
-|     gen_lutram.r_mem_reg_0_63_3_5          |    40.821  |
-|     gen_lutram.r_mem_reg_0_63_6_8          |    40.821  |
-|     gen_lutram.r_mem_reg_0_63_9_11         |    40.821  |
-|   gen_round_sat[0].u_round_saturate        |   362.920  |
-|   u_line_buffer                            |   236.311  |
-|   u_window_generator                       |   838.935  |
+| conv_system                                |  6162.859  |
+|   gen_kerenl_register[0].u_kernel_register |   649.442  |
+|   gen_mac[0].gen_single_chain.u_mac        |  2006.293  |
+|   gen_output_fifo[0].u_output_fifo         |  1161.506  |
+|     gen_lutram.r_mem_reg_0_63_0_2          |    33.857  |
+|     gen_lutram.r_mem_reg_0_63_12_14        |    33.857  |
+|     gen_lutram.r_mem_reg_0_63_15_15        |    33.857  |
+|     gen_lutram.r_mem_reg_0_63_3_5          |    33.857  |
+|     gen_lutram.r_mem_reg_0_63_6_8          |    33.857  |
+|     gen_lutram.r_mem_reg_0_63_9_11         |    33.857  |
+|   gen_round_sat[0].u_round_saturate        |   309.185  |
+|   u_line_buffer                            |   475.553  |
+|   u_window_generator                       |   638.949  |
 +--------------------------------------------+------------+
 
 

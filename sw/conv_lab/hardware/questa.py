@@ -23,12 +23,13 @@ TIMEOUT_S: Final = 1800
 
 
 def commands(run_dir: Path, input_size: int, window: int, num_kernels: int, *,
-             recompile: bool = True) -> list[str]:
-    """The vlib/vlog/vsim sequence for one frame, run from `run_dir`.
+             recompile: bool = True, gap: int = 0) -> list[str]:
+    """The vlib/vlog/vsim sequence for one run, run from `run_dir`.
 
     `recompile=False` drops vlog and reuses the library already built in
     `run_dir`. Only elaboration depends on the geometry, so a session that runs
-    many frames against unchanged RTL needs to compile exactly once.
+    many frames against unchanged RTL needs to compile exactly once. `gap` is
+    the number of idle cycles between the frames of a stream (0: back to back).
     """
     if shutil.which("vsim") is None:
         raise TestbenchError(
@@ -51,10 +52,8 @@ def commands(run_dir: Path, input_size: int, window: int, num_kernels: int, *,
     # inheriting whatever the local modelsim.ini happens to set as Resolution.
     if recompile:
         steps.append(f'vlog -sv -quiet -timescale 1ns/1ps -F "{MANIFEST}"')
-    steps.append(
-        f'vsim -c {generics} work.{TOP} '
-        f'+stim=stimulus.txt +result=features.txt -do "run -all; quit -f"'
-    )
+    plusargs = "+stim=stimulus.txt +result=features.txt" + (f" +gap={gap}" if gap else "")
+    steps.append(f'vsim -c {generics} work.{TOP} {plusargs} -do "run -all; quit -f"')
     return steps
 
 

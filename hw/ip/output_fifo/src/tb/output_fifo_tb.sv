@@ -97,24 +97,29 @@ interface output_fifo_bfm #(
    logic                   rst_n;
    logic                   i_valid_in;
    logic [PIXEL_WIDTH-1:0] i_data_in;
+   logic                   i_last_in;
    logic [PIXEL_WIDTH-1:0] o_data_out;
    logic                   o_valid_out;
+   logic                   o_last_out;
 
    task automatic init_signals();
       i_valid_in = 1'b0;
       i_data_in  = '0;
+      i_last_in  = 1'b0;
    endtask
 
-   // drives one value for exactly one clock edge
-   task automatic write_one(input logic [PIXEL_WIDTH-1:0] value);
+   // drives one value for exactly one clock edge; last marks a frame's final entry
+   task automatic write_one(input logic [PIXEL_WIDTH-1:0] value, input logic last = 1'b0);
       i_valid_in = 1'b1;
       i_data_in  = value;
+      i_last_in  = last;
       @(posedge clk);
    endtask
 
    // deasserts valid for exactly one clock edge - models an upstream gap
    task automatic write_idle_cycle();
       i_valid_in = 1'b0;
+      i_last_in  = 1'b0;
       @(posedge clk);
    endtask
 
@@ -127,7 +132,8 @@ endinterface
 //   Directed test for output_fifo: verifies no output is produced before
 //   PREFILL_THRESHOLD is reached, then drives a gapped write stream via
 //   output_fifo_bfm and confirms every value drains out in order, with no
-//   loss or reordering, before the frame is declared complete.
+//   loss or reordering, and that o_last marks the frame's last value. A second
+//   frame follows without a reset and must prefill and drain the same way.
 //------------------------------------------------------------------------------
 module output_fifo_tb;
 
@@ -137,7 +143,8 @@ module output_fifo_tb;
    localparam int  PIXEL_WIDTH       = 8;
    localparam int  DEPTH             = 8;
    localparam int  PREFILL_THRESHOLD = 4;
-   localparam int  WRITE_COUNT       = 20;
+   localparam int  WRITE_COUNT       = 20;   // values per frame
+   localparam int  FRAMES            = 2;
    localparam int  TIMEOUT_CYCLES    = 200;
 
    logic clk;
@@ -159,8 +166,10 @@ module output_fifo_tb;
       .rst_n      (bfm.rst_n),
       .i_valid (bfm.i_valid_in),
       .i_data  (bfm.i_data_in),
+      .i_last  (bfm.i_last_in),
       .o_data (bfm.o_data_out),
-      .o_valid(bfm.o_valid_out)
+      .o_valid(bfm.o_valid_out),
+      .o_last (bfm.o_last_out)
    );
 
    clk_gen #(
@@ -169,32 +178,81 @@ module output_fifo_tb;
       .clk(clk)
    );
 
-   // drives `count` values total through the BFM, occasionally skipping a
-   // cycle to model the kind of upstream gap this FIFO is meant to absorb.
-   // Records every write into the scoreboard so it knows what to expect back.
-   task automatic drive_writes(input int count, input int gap_every = 5);
+   // One read-side check per cycle: value order through the scoreboard, and
+   // o_last exactly on the last read of every frame.
+   function automatic void check_cycle();
+      tb_sb.check_output(bfm.o_valid_out, bfm.o_data_out);
+      if (bfm.o_last_out === 1'b1 && bfm.o_valid_out !== 1'b1)
+         tb_sb.report_error("o_last asserted without o_valid");
+      else if (bfm.o_valid_out === 1'b1 &&
+               ((bfm.o_last_out === 1'b1) != ((tb_sb.get_read_count() % WRITE_COUNT) == 0)))
+         tb_sb.report_error($sformatf("o_last=%0b on read %0d (frames of %0d)",
+                                      bfm.o_last_out, tb_sb.get_read_count(), WRITE_COUNT));
+   endfunction
+
+   // Drives writes first..first+count-1 through the BFM, occasionally skipping
+   // a cycle to model the kind of upstream gap this FIFO is meant to absorb.
+   // The last write of a frame carries i_last. Records every write into the
+   // scoreboard so it knows what to expect back.
+   task automatic drive_writes(input int first, input int count, input int gap_every = 5);
       $display("[TEST] Driving %0d values, with a gap every %0d writes", count, gap_every);
-      for (int i = 0; i < count; i++) begin
-         bfm.write_one(i[PIXEL_WIDTH-1:0]);
-         tb_sb.record_write(i[PIXEL_WIDTH-1:0]);
+      for (int i = first; i < first + count; i++) begin
+         bfm.write_one(PIXEL_WIDTH'(i), (i % WRITE_COUNT) == WRITE_COUNT - 1);
+         tb_sb.record_write(PIXEL_WIDTH'(i));
          if ((i % gap_every) == (gap_every - 1))
             bfm.write_idle_cycle();
       end
       bfm.i_valid_in = 1'b0;
+      bfm.i_last_in  = 1'b0;
    endtask
 
-   // waits until every written value has been drained, watching for a stall
+   // waits until every written value has been drained, watching for a stall,
+   // then requires the output to stay quiet
    task automatic drain_and_check(input int timeout_cycles);
       int idle_cycles = 0;
       $display("[TEST] Draining remaining %0d buffered value(s)", tb_sb.pending());
       while ((tb_sb.pending() != 0) && (idle_cycles < timeout_cycles)) begin
          @(posedge clk);
-         tb_sb.check_output(bfm.o_valid_out, bfm.o_data_out);
+         check_cycle();
          idle_cycles = bfm.o_valid_out ? 0 : idle_cycles + 1;
       end
       if (tb_sb.pending() != 0)
          tb_sb.report_error($sformatf("timed out with %0d value(s) still undrained",
                                        tb_sb.pending()));
+      repeat (PREFILL_THRESHOLD + 4) begin
+         @(posedge clk);
+         tb_sb.check_not_valid(bfm.o_valid_out, "after the frame drained");
+      end
+   endtask
+
+   // One frame of WRITE_COUNT values: nothing drains before PREFILL_THRESHOLD
+   // entries, then every value leaves in order and o_last marks the last one.
+   // Frames after the first run without a reset, so they prove that reading
+   // the last entry re-arms the prefill.
+   task automatic run_frame(input int frame);
+      int base = frame * WRITE_COUNT;
+      $display("[TEST] Frame %0d", frame);
+
+      // the first PREFILL_THRESHOLD-1 writes must not drain
+      for (int i = 0; i < PREFILL_THRESHOLD - 1; i++) begin
+         bfm.write_one(PIXEL_WIDTH'(base + i));
+         tb_sb.record_write(PIXEL_WIDTH'(base + i));
+         tb_sb.check_not_valid(bfm.o_valid_out, "before PREFILL_THRESHOLD reached");
+      end
+
+      // remaining writes, with gaps, run concurrently with output checking
+      fork
+         drive_writes(base + PREFILL_THRESHOLD - 1, WRITE_COUNT - (PREFILL_THRESHOLD - 1), 5);
+         begin: monitor
+            forever begin
+               @(posedge clk);
+               check_cycle();
+            end
+         end: monitor
+      join_any
+      disable monitor;
+
+      drain_and_check(TIMEOUT_CYCLES);
    endtask
 
    initial begin: test_sequence
@@ -202,36 +260,18 @@ module output_fifo_tb;
       bfm.init_signals();
 
       $display("============================================================");
-      $display("[TEST] output_fifo test started (DEPTH=%0d, PREFILL_THRESHOLD=%0d)",
-                DEPTH, PREFILL_THRESHOLD);
+      $display("[TEST] output_fifo test started (DEPTH=%0d, PREFILL=%0d, %0d frames of %0d)",
+                DEPTH, PREFILL_THRESHOLD, FRAMES, WRITE_COUNT);
 
       apply_reset(clk, 5 ,bfm.rst_n);
 
-      // drive the first PREFILL_THRESHOLD-1 writes and confirm nothing drains yet
-      for (int i = 0; i < PREFILL_THRESHOLD - 1; i++) begin
-         bfm.write_one(i[PIXEL_WIDTH-1:0]);
-         tb_sb.record_write(i[PIXEL_WIDTH-1:0]);
-         tb_sb.check_not_valid(bfm.o_valid_out, "before PREFILL_THRESHOLD reached");
-      end
-
-      // remaining writes, with gaps, run concurrently with output checking
-      fork
-         drive_writes(WRITE_COUNT - (PREFILL_THRESHOLD - 1), 5);
-         begin: monitor
-            forever begin
-               @(posedge clk);
-               tb_sb.check_output(bfm.o_valid_out, bfm.o_data_out);
-            end
-         end: monitor
-      join_any
-      disable monitor;
-
-      drain_and_check(TIMEOUT_CYCLES);
+      for (int f = 0; f < FRAMES; f++)
+         run_frame(f);
 
       $display("============================================================");
       if (tb_sb.get_error_count() == 0)
-         $display("[PASS] output_fifo completed with %0d value(s) verified",
-                   tb_sb.get_read_count());
+         $display("[PASS] output_fifo: %0d value(s) verified over %0d frame(s), one reset",
+                   tb_sb.get_read_count(), FRAMES);
       else
          $display("[FAIL] output_fifo completed with %0d error(s)",
                    tb_sb.get_error_count());

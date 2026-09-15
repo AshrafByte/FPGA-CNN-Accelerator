@@ -3,7 +3,7 @@
 # =============================================================================
 # Provides a standard `make <target> IP=...` interface for the team. 
 # Execution logic, module resolution, and simulator dispatching are handled 
-# entirely by common/scripts/python/vrun.py.
+# entirely by common/script/vrun.py.
 #
 # USAGE:
 #   make list
@@ -35,7 +35,7 @@
 # =============================================================================
 
 PYTHON ?= python
-VRUN   := common/scripts/python/vrun.py
+VRUN   := common/script/vrun.py
 GEN_SCRIPT := verif/_template/generate_uvm_env.py
 
 # --- Pass-through Variables (Optional) ---

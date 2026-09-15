@@ -49,7 +49,8 @@ module conv_system_power_tb;
    localparam int FRAME_PIXELS    = INPUT_SIZE * INPUT_SIZE;
    // Enough for the FIFO prefill and the longest MAC latency (the single chain
    // delays the last tap WINDOW_ELEMENTS cycles).
-   localparam int DRAIN_CYCLES    = 4 * INPUT_SIZE + 64 + 2 * WINDOW_ELEMENTS + INPUT_SIZE * WINDOW_SIZE;
+   localparam int DRAIN_CYCLES    = 4 * INPUT_SIZE + 64 + 2 * WINDOW_ELEMENTS
+                                  + INPUT_SIZE * WINDOW_SIZE;
 
    typedef logic        [PIXEL_WIDTH-1:0]   data_t;
    typedef logic signed [PIXEL_WIDTH-1:0]   k_data_t;
@@ -64,6 +65,7 @@ module conv_system_power_tb;
    logic [$clog2(NUM_KERNELS):0]   i_select_kernel;
    feature_t                       o_feature [NUM_KERNELS];
    logic                           o_valid;
+   logic                           o_frame_done;
 
    always #(CLK_PS/2) clk = ~clk;
 
@@ -87,15 +89,23 @@ module conv_system_power_tb;
       .i_weight_valid  (i_weight_valid),
       .i_select_kernel (i_select_kernel),
       .o_feature       (o_feature),
-      .o_valid         (o_valid)
+      .o_valid         (o_valid),
+      .o_frame_done    (o_frame_done)
    );
 
+   int unsigned frames_done;
+
    always_ff @(posedge clk or negedge rst_n)
-      if (!rst_n) features_seen <= 0;
-      else if (o_valid) features_seen <= features_seen + 1;
+      if (!rst_n) begin
+         features_seen <= 0;
+         frames_done   <= 0;
+      end else begin
+         if (o_valid)      features_seen <= features_seen + 1;
+         if (o_frame_done) frames_done   <= frames_done + 1;
+      end
 
    initial begin
-      int unsigned seed = 32'd20260915;
+      static int unsigned seed = 32'd20260915;
       int dummy;
 
       dummy = $urandom(seed);
@@ -160,8 +170,8 @@ module conv_system_power_tb;
       i_data        <= '0;
 
       repeat (DRAIN_CYCLES) @(posedge clk);
-      $display("[POWER] frame done: %0d features emitted (expected %0d)",
-               features_seen, (INPUT_SIZE - WINDOW_SIZE + 1) ** 2);
+      $display("[POWER] frame done: %0d features emitted (expected %0d), %0d o_frame_done pulse(s)",
+               features_seen, (INPUT_SIZE - WINDOW_SIZE + 1) ** 2, frames_done);
       $finish;
    end
 

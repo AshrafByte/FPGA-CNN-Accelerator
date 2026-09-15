@@ -1,7 +1,7 @@
 Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
-| Date         : Tue Sep 15 00:26:56 2026
+| Date         : Tue Sep 15 13:14:21 2026
 | Host         : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
 | Command      : report_timing_summary -max_paths 10 -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/fpga/synth/default/timing_summary.txt}
 | Design       : conv_system
@@ -81,7 +81,7 @@ Table of Contents
 
 6. checking no_output_delay
 ---------------------------
- There are 17 ports with no output delay specified. (HIGH)
+ There are 18 ports with no output delay specified. (HIGH)
 
  There are 0 ports with no output delay but user has a false path constraint
 
@@ -126,7 +126,7 @@ Table of Contents
 
     WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
     -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-      0.698        0.000                      0                 1507        0.070        0.000                      0                 1507        0.750        0.000                       0                   525  
+      0.664        0.000                      0                 1593        0.070        0.000                      0                 1593        0.750        0.000                       0                   572  
 
 
 All user specified timing constraints are met.
@@ -149,7 +149,7 @@ clk    {0.000 2.000}        4.000           250.000
 
 Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
 -----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-clk                 0.698        0.000                      0                 1507        0.070        0.000                      0                 1507        0.750        0.000                       0                   525  
+clk                 0.664        0.000                      0                 1593        0.070        0.000                      0                 1593        0.750        0.000                       0                   572  
 
 
 ------------------------------------------------------------------------------------------------
@@ -180,7 +180,7 @@ Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing 
 From Clock:  clk
   To Clock:  clk
 
-Setup :            0  Failing Endpoints,  Worst Slack        0.698ns,  Total Violation        0.000ns
+Setup :            0  Failing Endpoints,  Worst Slack        0.664ns,  Total Violation        0.000ns
 Hold  :            0  Failing Endpoints,  Worst Slack        0.070ns,  Total Violation        0.000ns
 PW    :            0  Failing Endpoints,  Worst Slack        0.750ns,  Total Violation        0.000ns
 ---------------------------------------------------------------------------------------------------
@@ -188,15 +188,15 @@ PW    :            0  Failing Endpoints,  Worst Slack        0.750ns,  Total Vio
 
 Max Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[0]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -216,15 +216,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[0]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -234,26 +234,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[0]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[0]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[10]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -273,15 +273,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[10]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -291,26 +291,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[10]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[10]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[11]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -330,15 +330,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[11]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -348,26 +348,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[11]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[11]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[12]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -387,15 +387,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[12]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -405,26 +405,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[12]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[12]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[13]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -444,15 +444,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[13]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -462,26 +462,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[13]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[13]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[14]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -501,15 +501,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[14]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -519,26 +519,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[14]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[14]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[15]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -558,15 +558,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[15]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -576,26 +576,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[15]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[15]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[1]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -615,15 +615,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[1]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -633,26 +633,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[1]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[1]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[2]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -672,15 +672,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[2]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -690,26 +690,26 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[2]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[2]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
-Slack (MET) :             0.698ns  (required time - arrival time)
+Slack (MET) :             0.664ns  (required time - arrival time)
   Source:                 gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
-                            (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Destination:            gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[3]/CE
                             (rising edge-triggered cell FDCE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
   Path Group:             clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
-  Data Path Delay:        2.920ns  (logic 0.897ns (30.719%)  route 2.023ns (69.281%))
+  Data Path Delay:        2.954ns  (logic 0.897ns (30.366%)  route 2.057ns (69.634%))
   Logic Levels:           2  (LUT3=1 LUT6=1)
   Clock Path Skew:        -0.145ns (DCD - SCD + CPR)
     Destination Clock Delay (DCD):    2.128ns = ( 6.128 - 4.000 ) 
@@ -729,15 +729,15 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.972     0.972 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.800     1.771    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.101     1.872 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
-                         FDCE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
+                         net (fo=571, unplaced)       0.584     2.456    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         FDRE                                         r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/C
   -------------------------------------------------------------------    -------------------
-                         FDCE (Prop_fdce_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
+                         FDRE (Prop_fdre_C_Q)         0.478     2.934 r  gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]/Q
                          net (fo=34, unplaced)        1.038     3.972    gen_output_fifo[0].u_output_fifo/q_write_ptr_reg[4]
-                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3/O
-                         net (fo=1, unplaced)         0.449     4.716    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_3_n_0
-                         LUT3 (Prop_lut3_I2_O)        0.124     4.840 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
-                         net (fo=23, unplaced)        0.536     5.376    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
+                         LUT6 (Prop_lut6_I0_O)        0.295     4.267 f  gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3/O
+                         net (fo=9, unplaced)         0.490     4.757    gen_output_fifo[0].u_output_fifo/o_frame_done_OBUF_inst_i_3_n_0
+                         LUT3 (Prop_lut3_I2_O)        0.124     4.881 r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1/O
+                         net (fo=17, unplaced)        0.529     5.410    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data[15]_i_1_n_0
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[3]/CE
   -------------------------------------------------------------------    -------------------
 
@@ -747,16 +747,16 @@ Slack (MET) :             0.698ns  (required time - arrival time)
                          IBUF (Prop_ibuf_I_O)         0.838     4.838 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.760     5.598    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.091     5.689 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.439     6.128    gen_output_fifo[0].u_output_fifo/clk_IBUF_BUFG
                          FDCE                                         r  gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[3]/C
                          clock pessimism              0.184     6.311    
                          clock uncertainty           -0.035     6.276    
                          FDCE (Setup_fdce_C_CE)      -0.202     6.074    gen_output_fifo[0].u_output_fifo/gen_lutram.o_data_reg[3]
   -------------------------------------------------------------------
                          required time                          6.074    
-                         arrival time                          -5.376    
+                         arrival time                          -5.410    
   -------------------------------------------------------------------
-                         slack                                  0.698    
+                         slack                                  0.664    
 
 
 
@@ -787,7 +787,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[0]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[0]/Q
@@ -801,7 +801,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_0_2/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_0_2/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_0_2/RAMA/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -835,7 +835,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[12]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[12]/Q
@@ -849,7 +849,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_12_14/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_12_14/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_12_14/RAMA/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -883,7 +883,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[15]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[15]/Q
@@ -897,7 +897,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_15_15/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_15_15/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_15_15/RAMA/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -931,7 +931,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[3]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[3]/Q
@@ -945,7 +945,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_3_5/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_3_5/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_3_5/RAMA/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -979,7 +979,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[6]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[6]/Q
@@ -993,7 +993,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_6_8/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_6_8/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_6_8/RAMA/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -1027,7 +1027,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[9]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[9]/Q
@@ -1041,7 +1041,7 @@ Slack (MET) :             0.070ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_9_11/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_9_11/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_9_11/RAMA/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -1075,7 +1075,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[1]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[1]/Q
@@ -1089,7 +1089,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_0_2/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_0_2/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_0_2/RAMB/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -1123,7 +1123,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[13]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[13]/Q
@@ -1137,7 +1137,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_12_14/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_12_14/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_12_14/RAMB/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -1171,7 +1171,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[4]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[4]/Q
@@ -1185,7 +1185,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_3_5/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_3_5/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_3_5/RAMB/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)
@@ -1219,7 +1219,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.200     0.200 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.337     0.538    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.026     0.564 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
+                         net (fo=571, unplaced)       0.114     0.678    gen_round_sat[0].u_round_saturate/clk_IBUF_BUFG
                          FDCE                                         r  gen_round_sat[0].u_round_saturate/o_data_reg[7]/C
   -------------------------------------------------------------------    -------------------
                          FDCE (Prop_fdce_C_Q)         0.147     0.825 r  gen_round_sat[0].u_round_saturate/o_data_reg[7]/Q
@@ -1233,7 +1233,7 @@ Slack (MET) :             0.071ns  (arrival time - required time)
                          IBUF (Prop_ibuf_I_O)         0.389     0.389 r  clk_IBUF_inst/O
                          net (fo=1, unplaced)         0.355     0.744    clk_IBUF
                          BUFG (Prop_bufg_I_O)         0.029     0.773 r  clk_IBUF_BUFG_inst/O
-                         net (fo=524, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_6_8/WCLK
+                         net (fo=571, unplaced)       0.259     1.032    gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_6_8/WCLK
                          RAMD64E                                      r  gen_output_fifo[0].u_output_fifo/gen_lutram.r_mem_reg_0_63_6_8/RAMB/CLK
                          clock pessimism             -0.210     0.823    
                          RAMD64E (Hold_ramd64e_CLK_I)

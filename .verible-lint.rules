@@ -1,0 +1,7 @@
+# Verible lint rules for this repository, read by the verible-lint job in
+# .github/workflows/ci.yaml. Every rule not listed keeps Verible's default.
+#
+# Line length: the default is 100 characters. The RTL keeps its long
+# parameter tables and elaboration-time $display banners on one line, the
+# longest being 126, so the limit is raised to 130.
+line-length=length:130

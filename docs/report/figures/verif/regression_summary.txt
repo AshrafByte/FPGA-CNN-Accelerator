@@ -1,6 +1,6 @@
-conv_lab hardware regression, started 2026-09-15 00:58:19
+conv_lab hardware regression, started 2026-09-15 13:25:44
 --sizes 32 · --seeds 20 · raw features
-53 case(s): 53 passed, 0 failed, 0 errored
+84 case(s): 84 passed, 0 failed, 0 errored
 
 PASS   test_every_preset_on_every_pattern[32px-ramp]       32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-ramp.png
 PASS   test_every_preset_on_every_pattern[32px-checker]    32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-checker.png
@@ -35,6 +35,37 @@ PASS   test_lane_count[32px-9]                             32x32  3x3   9 kernel
 PASS   test_lane_count[32px-16]                            32x32  3x3  16 kernel(s)  test_lane_count-32px-16.png
 PASS   test_window_size[32px-5]                            32x32  5x5   3 kernel(s)  test_window_size-32px-5.png
 PASS   test_window_size[32px-7]                            32x32  7x7   3 kernel(s)  test_window_size-32px-7.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame0]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame0.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame1]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame1.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame2]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame2.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame3]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame3.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame4]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame4.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame0]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame0.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame1]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame1.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame2]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame2.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame3]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame3.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame4]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame4.png
+PASS   test_stream_window_size[32px-5][frame0]             32x32  5x5   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-5-frame0.png
+PASS   test_stream_window_size[32px-5][frame1]             32x32  5x5   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-5-frame1.png
+PASS   test_stream_window_size[32px-5][frame2]             32x32  5x5   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-5-frame2.png
+PASS   test_stream_window_size[32px-7][frame0]             32x32  7x7   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-7-frame0.png
+PASS   test_stream_window_size[32px-7][frame1]             32x32  7x7   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-7-frame1.png
+PASS   test_stream_window_size[32px-7][frame2]             32x32  7x7   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-7-frame2.png
+PASS   test_stream_randomised[stream0][frame0]             23x23  3x3   1 kernel(s)  4 frames, gap 0  test_stream_randomised-stream0-frame0.png
+PASS   test_stream_randomised[stream0][frame1]             23x23  3x3   1 kernel(s)  4 frames, gap 0  test_stream_randomised-stream0-frame1.png
+PASS   test_stream_randomised[stream0][frame2]             23x23  3x3   1 kernel(s)  4 frames, gap 0  test_stream_randomised-stream0-frame2.png
+PASS   test_stream_randomised[stream0][frame3]             23x23  3x3   1 kernel(s)  4 frames, gap 0  test_stream_randomised-stream0-frame3.png
+PASS   test_stream_randomised[stream1][frame0]             27x27  5x5   3 kernel(s)  4 frames, gap 17  test_stream_randomised-stream1-frame0.png
+PASS   test_stream_randomised[stream1][frame1]             27x27  5x5   3 kernel(s)  4 frames, gap 17  test_stream_randomised-stream1-frame1.png
+PASS   test_stream_randomised[stream1][frame2]             27x27  5x5   3 kernel(s)  4 frames, gap 17  test_stream_randomised-stream1-frame2.png
+PASS   test_stream_randomised[stream1][frame3]             27x27  5x5   3 kernel(s)  4 frames, gap 17  test_stream_randomised-stream1-frame3.png
+PASS   test_stream_randomised[stream2][frame0]             18x18  3x3   1 kernel(s)  4 frames, gap 1  test_stream_randomised-stream2-frame0.png
+PASS   test_stream_randomised[stream2][frame1]             18x18  3x3   1 kernel(s)  4 frames, gap 1  test_stream_randomised-stream2-frame1.png
+PASS   test_stream_randomised[stream2][frame2]             18x18  3x3   1 kernel(s)  4 frames, gap 1  test_stream_randomised-stream2-frame2.png
+PASS   test_stream_randomised[stream2][frame3]             18x18  3x3   1 kernel(s)  4 frames, gap 1  test_stream_randomised-stream2-frame3.png
+PASS   test_stream_randomised[stream3][frame0]             10x10  3x3   3 kernel(s)  3 frames, gap 0  test_stream_randomised-stream3-frame0.png
+PASS   test_stream_randomised[stream3][frame1]             10x10  3x3   3 kernel(s)  3 frames, gap 0  test_stream_randomised-stream3-frame1.png
+PASS   test_stream_randomised[stream3][frame2]             10x10  3x3   3 kernel(s)  3 frames, gap 0  test_stream_randomised-stream3-frame2.png
 PASS   test_randomised[seed0]                              33x33  5x5   6 kernel(s)  test_randomised-seed0.png
 PASS   test_randomised[seed1]                              27x27  3x3   1 kernel(s)  test_randomised-seed1.png
 PASS   test_randomised[seed2]                              17x17  5x5   6 kernel(s)  test_randomised-seed2.png

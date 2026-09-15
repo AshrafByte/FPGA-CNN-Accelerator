@@ -163,11 +163,15 @@ _downloaded_*
 *dvt*
 # conv_lab (sw/) simulator run artifacts, venvs and Python caches
 sw/.run/
+sw/.run_wave_*/
 regression_results/
 .venv/
 __pycache__/
 .pytest_cache/
 .idea/
+
+# Report diagram export scratch (headless Chrome profile, redirect pages)
+docs/report/scripts/.diagram_build/
 
 # FPGA flow (fpga/): checkpoints, the demo's Vivado project, simulator scratch
 # and logs. Reports (*.txt, summary.md, results.csv) and the PYNQ overlay

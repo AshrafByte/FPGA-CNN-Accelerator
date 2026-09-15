@@ -16,6 +16,20 @@ FPGA-based Edge AI CNN convolution accelerator with SystemVerilog RTL, verificat
 | `experiments/` | the three MAC architectures as standalone designs |
 | `docs/` | report, diagrams, competition specification |
 
+## Verification quick start
+
+```bash
+python common/script/vrun.py list                   # simulatable IPs and systems
+python common/script/vrun.py sim conv_system        # self-checking system testbench (QuestaSim)
+python common/script/vrun.py sim line_buffer        # IP unit tests: line_buffer, output_fifo, kernel_register
+cd sw && python -m pytest -m "not hardware"         # golden model and contract unit tests
+cd sw && python -m pytest -m hardware tests         # hardware regression against the golden model
+python -m pytest fpga/board/tests                   # PYNQ driver against a model of the AXI wrapper
+```
+
+`conv_system` streams frames back to back without a reset: `o_frame_done` marks the last
+feature of every frame (see `hw/system/conv_system/src/rtl/conv_system.sv`).
+
 ## FPGA quick start
 
 ```powershell

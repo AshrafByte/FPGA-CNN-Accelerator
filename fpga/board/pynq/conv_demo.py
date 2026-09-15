@@ -12,6 +12,11 @@ Every hardware frame is compared feature by feature with the bit-accurate
 golden model below (valid correlation, round half up, 16-bit saturation, the
 same rule as sw/conv_lab/core/reference.py). The exit code is 1 on any mismatch.
 
+The accelerator is reset once, when the overlay is opened. Every frame after
+that streams without a reset: the driver writes a kernel only when it changes,
+sends the pixels and waits for the frame-done flag that conv_system's
+o_frame_done sets; FRAME_COUNT counts the completed frames.
+
 Register map and protocol: fpga/board/rtl/conv_axi_lite.sv.
 """
 
@@ -31,7 +36,7 @@ REG = {
     "ID": 0x000, "GEOMETRY": 0x004, "FORMAT": 0x008, "CTRL": 0x00C, "STATUS": 0x010,
     "KERNEL_SEL": 0x014, "WEIGHT": 0x018, "PIXEL": 0x01C, "PIXELS4": 0x020,
     "WEIGHT_COUNT": 0x024, "PIXEL_COUNT": 0x028, "OUT_COUNT": 0x02C,
-    "LATENCY": 0x030, "FRAME_CYCLES": 0x034,
+    "LATENCY": 0x030, "FRAME_CYCLES": 0x034, "FRAME_COUNT": 0x038,
 }
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -122,6 +127,7 @@ class ConvAccelerator(object):
         self.idx_bits = (fmt >> 8) & 0xFF
         self.relu = bool((fmt >> 16) & 1)
         self.output_size = self.input_size - self.window + 1
+        self.reset()
 
     def read(self, reg):
         return self.mmio.read(REG[reg])
@@ -129,9 +135,26 @@ class ConvAccelerator(object):
     def write(self, reg, value):
         self.mmio.write(REG[reg], int(value) & 0xFFFFFFFF)
 
-    def run(self, image, kernels, timeout=10.0):
-        """One frame. image: uint8 (W, W); kernels: one N x N list per lane.
+    def reset(self):
+        """Soft reset: clears the pipeline, the kernels and every counter."""
+        self.write("CTRL", 1)
+        self.write("CTRL", 0)
+        self._loaded = None
 
+    def load_kernels(self, kernels):
+        """Write one N x N kernel per lane (between frames; no reset needed)."""
+        for lane, kernel in enumerate(kernels):
+            self.write("KERNEL_SEL", lane)
+            for row in kernel:
+                for weight in row[::-1]:                 # hardware tap order
+                    self.write("WEIGHT", int(weight) & 0xFF)
+        self._loaded = tuple(tuple(int(w) for w in k.reshape(-1)) for k in kernels)
+
+    def run(self, image, kernels, timeout=10.0):
+        """One frame, streamed after the previous one without a reset.
+
+        image: uint8 (W, W); kernels: one N x N list per lane, written only when
+        they differ from the kernels already loaded.
         Returns (features int32 (lanes, out, out), stats dict).
         """
         image = np.asarray(image, dtype=np.uint8)
@@ -141,16 +164,12 @@ class ConvAccelerator(object):
         lanes = self.num_kernels
         while len(kernels) < lanes:                      # unused lanes repeat lane 0
             kernels.append(kernels[0])
-
-        self.write("CTRL", 1)
-        self.write("CTRL", 0)
+        kernels = kernels[:lanes]
 
         t0 = time.time()
-        for lane, kernel in enumerate(kernels[:lanes]):
-            self.write("KERNEL_SEL", lane)
-            for row in kernel:
-                for weight in row[::-1]:                 # hardware tap order
-                    self.write("WEIGHT", int(weight) & 0xFF)
+        wanted = tuple(tuple(int(w) for w in k.reshape(-1)) for k in kernels)
+        if wanted != self._loaded:
+            self.load_kernels(kernels)
 
         flat = image.reshape(-1).astype(np.uint32)
         whole = len(flat) // 4 * 4
@@ -179,6 +198,7 @@ class ConvAccelerator(object):
             "readback_s": t2 - t1,
             "latency_cycles": self.read("LATENCY"),
             "frame_cycles": self.read("FRAME_CYCLES"),
+            "frames_since_reset": self.read("FRAME_COUNT"),
         }
         return features.reshape(lanes, self.output_size, self.output_size), stats
 

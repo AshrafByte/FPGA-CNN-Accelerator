@@ -142,6 +142,11 @@ run = harness.run(image, kernels)                 # reference model + one simula
 run.result.features                               # (2, 62, 62) int32 from the hardware
 run.comparison.all_match                          # every feature bit-exact?
 run.comparison.failures()                         # one line per disagreeing lane
+
+frames = [load_image(p, 64) for p in ("a.png", "b.png", "c.png")]
+runs = harness.run_stream(frames, kernels)        # one simulation, one reset, 3 frames back to back
+runs = harness.run_stream(frames, kernels, gap=9) # ... or 9 idle cycles between frames
+[r.comparison.all_match for r in runs]            # each frame checked on its own
 ```
 
 `Harness.run()` is the run pipeline both front ends share. It validates the
@@ -155,6 +160,13 @@ stimulus, elaborates `conv_system` for that exact shape, streams one frame and
 parses the features back, raising `TestbenchError` if the simulator is missing,
 the run fails, or the frame comes back short. An instance compiles the RTL on
 its first run; later runs only re-elaborate.
+
+`run_stream()` (on both `Harness` and `QuestaTestbench`) sends several frames
+through one simulation after a single reset, the way `conv_system` streams video:
+back to back by default, or `gap` idle cycles apart. It returns one result per
+frame, each compared with its own reference, so a pipeline that failed to re-arm
+at a frame boundary shows up in the frame it smeared. The testbench also fails
+the run unless `o_frame_done` is high exactly on the last feature of every frame.
 
 `RunComparison` holds a verdict per kernel, fixed from the raw frames at
 construction; frames on a shared display scale; PNG rows; failure lines.
@@ -178,16 +190,18 @@ Three text files, under `sw/.run/` by default (`--run-dir` to move it):
 ```
 INPUT_SIZE WINDOW_SIZE NUM_KERNELS
 <NUM_KERNELS * WINDOW_SIZE**2 signed weights, kernel-major>
-<INPUT_SIZE**2 pixels 0..255, raster order>
+<INPUT_SIZE**2 pixels 0..255, raster order>      one block per frame, as many frames as the stream has
 ```
 
 `features.txt`, written by the testbench:
 
 ```
 # comment
-OUTPUT_SIZE NUM_KERNELS DROP
-<one raster line per output pixel, NUM_KERNELS signed values each>
+OUTPUT_SIZE NUM_KERNELS DROP NUM_FRAMES
+<one raster line per output pixel, frame after frame, NUM_KERNELS signed values each>
 ```
+
+A header without `NUM_FRAMES` is read as one frame.
 
 `sim.log` — the simulator's combined output, kept for diagnosis.
 
@@ -206,7 +220,9 @@ vsim -c -gINPUT_SIZE=32 work.conv_image_tb \
 ```
 
 Run these from the directory holding `stimulus.txt` — the testbench opens the
-plusarg paths relative to the simulator's working directory.
+plusarg paths relative to the simulator's working directory. Every frame in the
+file streams after one reset, back to back; add `+gap=<cycles>` for idle cycles
+between frames.
 
 ### The one trap: tap order
 
@@ -247,7 +263,7 @@ every feature of every lane to match the reference model. It is marked
 
 ```bash
 cd sw
-python -m pytest -m hardware                # the regression: 33 directed + 20 random frames
+python -m pytest -m hardware                # the regression: 33 directed + 20 random frames + 8 streams
 python -m pytest -m hardware --seeds 200    # widen the random sweep
 python -m pytest -m hardware --sizes 16,32,64   # run the size-independent cases at each size
 python -m pytest -m hardware --relu         # rectify the saved images (verdicts stay raw)
@@ -271,6 +287,9 @@ geometry. Run it serially — the cases share one Questa work directory.
 | lane count | 9 × sizes | `NUM_KERNELS` 1–16, across the select bus's width steps |
 | window size | 2 × sizes | 5×5 and 7×7 (sizes too small for the window are skipped) |
 | randomised | `--seeds` | random size, image, window and 1–6 kernels, reproducible from the seed in the test id |
+| stream every pattern | 2 × sizes | the five patterns as consecutive frames after one reset, back to back and 5 cycles apart |
+| stream window size | 2 × sizes | three frames through the 5×5 and 7×7 row-chain builds |
+| stream randomised | 4 | random size (down to window + 1), 2–4 frames, gap 0/1/17 and 1–4 kernels |
 
 When a case fails, its tmp directory keeps `stimulus.txt`, `features.txt`,
 `sim.log` and `mismatch.png` (input | hardware | reference), and the

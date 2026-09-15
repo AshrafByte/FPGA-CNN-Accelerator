@@ -23,8 +23,8 @@
 #let fpga = (
   device: [AMD Zynq-7020 `xc7z020clg400-1` (PYNQ-Z2)],
   tool: [Vivado 2018.2],
-  luts: 71,  luts-avail: 53200,
-  ffs: 474,  ffs-avail: 106400,
+  luts: 78,  luts-avail: 53200,
+  ffs: 521,  ffs-avail: 106400,
   dsps: 9,   dsps-avail: 220,
   brams: 0,  brams-avail: 140,
   lutram: 24,
@@ -34,21 +34,21 @@
 // ---- Timing, power & performance ----
 #let perf = (
   clock-target: 4.000,          // ns (250 MHz)
-  wns: 0.794,                   // ns
+  wns: 0.728,                   // ns
   tns: 0.000,
-  whs: 0.073,
-  fmax: 311.9,                  // MHz
+  whs: 0.082,
+  fmax: 305.6,                  // MHz
   timing-met: [Yes],
-  // Bars + Sobel-X benchmark (headline)
-  power-dynamic: 0.015642,      // W
-  power-static: 0.104590,
-  power-total: 0.120232,
-  // Checkerboard + Sobel-Y benchmark
-  power-total-checker: 0.110921,
-  power-dynamic-checker: 0.006464,
-  power-static-checker: 0.104457,
+  // Bars + Sobel-X benchmark
+  power-dynamic: 0.015336,      // W
+  power-static: 0.104585,
+  power-total: 0.119921,
+  // Checkerboard + Sobel-Y benchmark (headline)
+  power-total-checker: 0.110615,
+  power-dynamic-checker: 0.006163,
+  power-static-checker: 0.104452,
   // Vivado vectorless estimate (reference only)
-  power-vectorless: 0.160238,
+  power-vectorless: 0.159860,
   latency: 142,                 // cycles, first pixel -> first feature (32x32, QuestaSim)
   frame-cycles: 1041,           // cycles, first pixel -> last feature
   throughput: 1,                // output pixels per clock cycle, sustained
@@ -57,7 +57,7 @@
 // ---- Verification ----
 #let verif = (
   golden-lang: [Python 3 / NumPy],
-  cases: [234 856],             // features compared by the 53-case hardware regression
+  cases: [289 328],             // features compared by the 61-case hardware regression (84 frames)
   mismatches: 0,
   status: [Pass, bit-exact],
 )

@@ -4,15 +4,22 @@
 // Purpose:
 //   Self-checking test of the board-demo AXI4-Lite wrapper. It drives
 //   conv_axi_lite exactly as the PYNQ driver (fpga/board/pynq/conv_demo.py)
-//   does - soft reset, kernels written right to left per row, pixels in
+//   does - one soft reset, kernels written right to left per row, pixels in
 //   PIXELS4 bursts plus single PIXEL writes, STATUS polling, feature window
 //   read-back - and compares every feature of every lane with a behavioural
 //   model of the datapath (valid correlation, round half up, 16-bit
 //   saturation, optional ReLU).
 //
-//   Frames: random image with an identity kernel (lane 0) and Sobel-X or
-//   random kernels; a 4-px checkerboard with Sobel-Y or random kernels; a
-//   white frame with the extreme kernels all +127 / all -128.
+//   Frames 1-5 follow a single soft reset, with no reset between them:
+//     1  random image, identity kernel (lane 0) and Sobel-X / random kernels
+//     2  new kernels: 4-px checkerboard with Sobel-Y / random kernels
+//     3  new kernels: white frame with the extreme kernels all +127 / all -128
+//     4  same kernels, a new random image (no kernel write at all)
+//     5  new random kernels, ramp image
+//   Frame 6 follows a second soft reset, which must clear every counter.
+//   Per frame it checks every feature, OUT_COUNT, PIXEL_COUNT, the running
+//   WEIGHT_COUNT and FRAME_COUNT, and that STATUS[2] drops when the next frame
+//   starts.
 //
 // Configuration comes from board_tb_cfg.vh, written by fpga/scripts/board_sim.tcl.
 //------------------------------------------------------------------------------
@@ -50,6 +57,7 @@ module conv_axi_lite_tb;
    localparam logic [ADDR_WIDTH-1:0] REG_OUT_COUNT    = 'h02C;
    localparam logic [ADDR_WIDTH-1:0] REG_LATENCY      = 'h030;
    localparam logic [ADDR_WIDTH-1:0] REG_FRAME_CYCLES = 'h034;
+   localparam logic [ADDR_WIDTH-1:0] REG_FRAME_COUNT  = 'h038;
    localparam int                    FEATURE_BASE     = 'h1_0000;
 
    logic clk = 1'b0;
@@ -144,7 +152,36 @@ module conv_axi_lite_tb;
       return int'(acc);
    endfunction
 
-   int total_errors = 0;
+   int total_errors    = 0;
+   int weights_written = 0;   // since the last soft reset
+   int frames_done     = 0;   // since the last soft reset
+
+   task automatic check_register(string name, logic [ADDR_WIDTH-1:0] addr, int want, string what,
+                                 inout int errors);
+      logic [31:0] v;
+      axi_read(addr, v);
+      if (v != 32'(want)) begin
+         $display("[BOARD] %s: %s %0d, expected %0d", name, what, v, want);
+         errors++;
+      end
+   endtask
+
+   task automatic soft_reset();
+      axi_write(REG_CTRL, 32'd1);
+      axi_write(REG_CTRL, 32'd0);
+      weights_written = 0;
+      frames_done     = 0;
+   endtask
+
+   task automatic load_kernels();
+      for (int k = 0; k < K; k++) begin
+         axi_write(REG_KERNEL_SEL, 32'(k));
+         for (int r = 0; r < N; r++)
+            for (int c = N - 1; c >= 0; c--)
+               axi_write(REG_WEIGHT, 32'(kernels[k][r * N + c]) & 32'hFF);
+      end
+      weights_written += K * E;
+   endtask
 
    task automatic run_frame(string name);
       logic [31:0] v;
@@ -152,19 +189,17 @@ module conv_axi_lite_tb;
       int          polls  = 0;
       int          p      = 0;
 
-      axi_write(REG_CTRL, 32'd1);
-      axi_write(REG_CTRL, 32'd0);
-
-      for (int k = 0; k < K; k++) begin
-         axi_write(REG_KERNEL_SEL, 32'(k));
-         for (int r = 0; r < N; r++)
-            for (int c = N - 1; c >= 0; c--)
-               axi_write(REG_WEIGHT, 32'(kernels[k][r * N + c]) & 32'hFF);
-      end
-
       while (p + 4 <= W * W) begin
          axi_write(REG_PIXELS4, {8'(image[p+3]), 8'(image[p+2]), 8'(image[p+1]), 8'(image[p])});
          p += 4;
+         if (p == 4) begin
+            // the first pixel has reached the core: the previous frame's done flag is gone
+            axi_read(REG_STATUS, v);
+            if (v[2]) begin
+               $display("[BOARD] %s: STATUS[2] still set after the first pixel", name);
+               errors++;
+            end
+         end
       end
       while (p < W * W) begin
          axi_write(REG_PIXEL, 32'(image[p]));
@@ -181,13 +216,12 @@ module conv_axi_lite_tb;
          total_errors++;
          return;
       end
+      frames_done++;
 
-      axi_read(REG_OUT_COUNT, v);
-      if (v != 32'(OUT * OUT)) begin $display("[BOARD] %s: OUT_COUNT %0d, expected %0d", name, v, OUT * OUT); errors++; end
-      axi_read(REG_PIXEL_COUNT, v);
-      if (v != 32'(W * W)) begin $display("[BOARD] %s: PIXEL_COUNT %0d, expected %0d", name, v, W * W); errors++; end
-      axi_read(REG_WEIGHT_COUNT, v);
-      if (v != 32'(K * E)) begin $display("[BOARD] %s: WEIGHT_COUNT %0d, expected %0d", name, v, K * E); errors++; end
+      check_register(name, REG_OUT_COUNT,    OUT * OUT,       "OUT_COUNT",    errors);
+      check_register(name, REG_PIXEL_COUNT,  W * W,           "PIXEL_COUNT",  errors);
+      check_register(name, REG_WEIGHT_COUNT, weights_written, "WEIGHT_COUNT", errors);
+      check_register(name, REG_FRAME_COUNT,  frames_done,     "FRAME_COUNT",  errors);
 
       for (int k = 0; k < K; k++)
          for (int i = 0; i < OUT * OUT; i++) begin
@@ -201,8 +235,8 @@ module conv_axi_lite_tb;
          end
 
       axi_read(REG_LATENCY, v);
-      $display("[BOARD] %s: %0d features x %0d lane(s), %0d mismatches, latency %0d cycles",
-               name, OUT * OUT, K, errors, v);
+      $display("[BOARD] %s: frame %0d, %0d features x %0d lane(s), %0d mismatches, latency %0d",
+               name, frames_done, OUT * OUT, K, errors, v);
       total_errors += errors;
    endtask
 
@@ -211,7 +245,13 @@ module conv_axi_lite_tb;
       int sobel_x [9] = '{-1, 0, 1, -2, 0, 2, -1, 0, 1};
       int sobel_y [9] = '{-1, -2, -1, 0, 0, 0, 1, 2, 1};
       for (int e = 0; e < E; e++)
-         kernels[k][e] = (N == 3) ? (vertical ? sobel_y[e] : sobel_x[e]) : ($urandom_range(0, 255) - 128);
+         kernels[k][e] = (N == 3) ? (vertical ? sobel_y[e] : sobel_x[e])
+                                  : ($urandom_range(0, 255) - 128);
+   endfunction
+
+   function automatic void set_random_kernels();
+      for (int k = 0; k < K; k++)
+         for (int e = 0; e < E; e++) kernels[k][e] = $urandom_range(0, 255) - 128;
    endfunction
 
    initial begin
@@ -231,25 +271,55 @@ module conv_axi_lite_tb;
       axi_read(REG_ID, v);
       if (v != 32'h434E_5631) begin $display("[BOARD] ID register %h", v); total_errors++; end
       axi_read(REG_GEOMETRY, v);
-      if (v != {8'(K), 8'(N), 16'(W)}) begin $display("[BOARD] GEOMETRY register %h", v); total_errors++; end
+      if (v != {8'(K), 8'(N), 16'(W)}) begin
+         $display("[BOARD] GEOMETRY register %h", v);
+         total_errors++;
+      end
+
+      soft_reset();
 
       // Frame 1: random image, identity kernel on lane 0, Sobel-X / random elsewhere.
       for (int i = 0; i < W * W; i++) image[i] = $urandom_range(0, 255);
       for (int k = 0; k < K; k++) set_sobel(k, 1'b0);
       for (int e = 0; e < E; e++) kernels[0][e] = 0;
       kernels[0][(N / 2) * N + N / 2] = 1 << DROP;
+      load_kernels();
       run_frame("random image, identity / Sobel-X");
 
-      // Frame 2: 4-px checkerboard 230/25, Sobel-Y / random.
+      // Frame 2, no reset: new kernels, 4-px checkerboard 230/25, Sobel-Y / random.
       for (int i = 0; i < W * W; i++) image[i] = (((i / W) / 4 + (i % W) / 4) % 2 == 0) ? 230 : 25;
       for (int k = 0; k < K; k++) set_sobel(k, 1'b1);
-      run_frame("checkerboard, Sobel-Y");
+      load_kernels();
+      run_frame("no reset, new kernels: checkerboard, Sobel-Y");
 
-      // Frame 3: white frame with the extreme kernels.
+      // Frame 3, no reset: new kernels, white frame with the extreme kernels.
       for (int i = 0; i < W * W; i++) image[i] = 255;
       for (int k = 0; k < K; k++)
          for (int e = 0; e < E; e++) kernels[k][e] = (k % 2 == 0) ? 127 : -128;
-      run_frame("white frame, all +127 / all -128");
+      load_kernels();
+      run_frame("no reset, new kernels: white frame, all +127 / all -128");
+
+      // Frame 4, no reset, no kernel write: a new random image.
+      for (int i = 0; i < W * W; i++) image[i] = $urandom_range(0, 255);
+      run_frame("no reset, same kernels: random image");
+
+      // Frame 5, no reset: random kernels over a ramp.
+      for (int i = 0; i < W * W; i++) image[i] = ((i / W) * 7 + (i % W) * 5) % 256;
+      set_random_kernels();
+      load_kernels();
+      run_frame("no reset, random kernels: ramp");
+
+      // Frame 6: a soft reset must clear the counters and still give an exact frame.
+      soft_reset();
+      axi_read(REG_FRAME_COUNT, v);
+      if (v != 0) begin
+         $display("[BOARD] FRAME_COUNT %0d after the soft reset", v);
+         total_errors++;
+      end
+      for (int i = 0; i < W * W; i++) image[i] = $urandom_range(0, 255);
+      set_random_kernels();
+      load_kernels();
+      run_frame("after soft reset: random image and kernels");
 
       if (total_errors == 0) $display("TEST PASSED");
       else                   $display("TEST FAILED: %0d errors", total_errors);
@@ -257,7 +327,7 @@ module conv_axi_lite_tb;
    end
 
    initial begin
-      #200ms;
+      #600ms;
       $display("TEST FAILED: timeout");
       $finish;
    end

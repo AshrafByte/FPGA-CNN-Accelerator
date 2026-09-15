@@ -43,13 +43,28 @@
 //   - output_fifo absorbs the row-boundary valid gaps of the MAC output,
 //     re-emitting a prefill-gated, continuously draining feature stream.
 //
+// Frames (continuous streaming, no reset between frames):
+//   - A frame starts with its first i_pixel_valid and ends with o_frame_done,
+//     a one-cycle pulse that is high together with o_valid on the frame's
+//     last feature. The next i_pixel_valid starts the next frame; it may
+//     follow the previous frame's last pixel immediately.
+//   - line_buffer counts the rows of each frame and refills its banks at the
+//     start of the next one; it marks the frame's last window (o_frame_end).
+//   - Every stage after the window forwards valid through a fixed number of
+//     registers, so that mark is delayed by exactly LAST_DELAY cycles
+//     (r_last_pipe) and reaches output_fifo together with the frame's last
+//     feature. The FIFO re-arms its prefill after draining it and raises
+//     o_last, which is o_frame_done.
+//   - rst_n is only needed at power-up or to abandon a partial frame.
+//
 // Assumptions:
 //   - Caller presents i_pixel/i_valid_in in raster order for a
-//     WINDOW_SIZE x WINDOW_SIZE convolution over an INPUT_SIZE x INPUT_SIZE
-//     image.
-//   - The kernel load completes before streaming starts; weights are static
-//     for the frame (the DSP chains rely on it: weights carry no skew).
-//   - output_fifo's prefill latch is reset only by rst_n: reset between frames.
+//     WINDOW_SIZE x WINDOW_SIZE convolution over INPUT_SIZE x INPUT_SIZE
+//     frames, every pixel of a frame exactly once; i_pixel_valid may drop at
+//     any time (stalls).
+//   - The kernel load completes before a frame streams; weights are static
+//     for the frame (the DSP chains rely on it: weights carry no skew). A new
+//     kernel may be loaded between frames, after o_frame_done.
 //
 // Parameters:
 //   PIXEL_WIDTH   : Width of each input pixel and kernel weight.
@@ -106,7 +121,8 @@ module conv_system
       input sel_ker_t i_select_kernel,
 
       output feature_t o_feature [NUM_KERNELS],
-      output logic     o_valid
+      output logic     o_valid,
+      output logic     o_frame_done
    );
 
    localparam int  LINE_NUM  = WINDOW_SIZE;
@@ -118,8 +134,12 @@ module conv_system
                                 * ((longint'(1) << PIXEL_WIDTH) - 1)
                                 * ((longint'(1) << (PIXEL_WIDTH - 1)) - 1);
    localparam type product_t = logic signed [PRODUCT_WIDTH-1:0];
+   localparam int FRAME_FEATURES         = (INPUT_SIZE - WINDOW_SIZE + 1) ** 2;
    localparam int FIFO_DEPTH             = (INPUT_SIZE - WINDOW_SIZE) * (WINDOW_SIZE - 1);
-   localparam int FIFO_PREFILL_THRESHOLD = FIFO_DEPTH;
+   // A frame smaller than its row-edge gap count (tiny frames, large windows)
+   // must still be able to fill the prefill, or it would never drain.
+   localparam int FIFO_PREFILL_THRESHOLD = (FIFO_DEPTH < FRAME_FEATURES) ? FIFO_DEPTH
+                                                                         : FRAME_FEATURES;
 
    // ---- automatic MAC selection -------------------------------------------------
    // Every architecture uses one DSP multiply per tap, so the DSP count is
@@ -176,6 +196,15 @@ module conv_system
                               : ((ROW_OK && (TOTAL_DSP <= ROW_CHAIN_MAX_DSP)) ? 2 : 1);
    localparam int MAC_SEL  = ((MAC_ARCH >= 1) && (MAC_ARCH <= 3)) ? MAC_ARCH : MAC_AUTO;
 
+   // ---- valid latency from the MAC input to the output FIFO ------------------
+   // Each figure is the length of that module's valid register chain:
+   //   mac_single_chain 2 + N^2, mac_row_chain 2 + N + clog2(N),
+   //   multiplier_array 3 + adder_tree clog2(N^2), round_saturate 2, relu_unit 1.
+   localparam int MAC_LATENCY = (MAC_SEL == 3) ? 2 + WINDOW_ELEMENTS
+                              : (MAC_SEL == 2) ? 2 + WINDOW_SIZE + $clog2(WINDOW_SIZE)
+                              :                  3 + $clog2(WINDOW_ELEMENTS);
+   localparam int LAST_DELAY  = MAC_LATENCY + 2 + (ENABLE_RELU ? 1 : 0);
+
    // ---- automatic FIFO memory selection -----------------------------------------
    // Picks the output_fifo memory with the lower figure-of-merit cost,
    // FoM = throughput / (P x (LUTs + 50*DSPs + 100*BRAMs)). Calibrated on
@@ -218,6 +247,9 @@ module conv_system
    logic w_all_kernels_ready;
    logic w_o_valid [NUM_KERNELS];
    logic w_post_valid [NUM_KERNELS];
+   logic w_frame_end;
+   logic w_post_last;
+   logic w_o_last [NUM_KERNELS];
 
 
    data_t w_rows   [LINE_NUM];
@@ -233,16 +265,26 @@ module conv_system
    genvar i ;
 
    // synthesis translate_off
-   initial
+   initial begin
       $display("[conv_system] WINDOW_SIZE=%0d NUM_KERNELS=%0d MAC_SEL=%0d (%s)  DSP=%0d  FIFO_BRAM=%0d",
                WINDOW_SIZE, NUM_KERNELS, MAC_SEL,
                (MAC_SEL == 3) ? "single chain" : (MAC_SEL == 2) ? "row chains" : "tree",
                TOTAL_DSP, FIFO_USE_BRAM);
+      $display("[conv_system] LAST_DELAY=%0d (frame-end mark)", LAST_DELAY);
+   end
+
+   // The frame-end mark must meet a feature; anything else means LAST_DELAY
+   // no longer matches the valid chains of the stages it spans.
+   always @(posedge clk)
+      if (rst_n && w_post_last && !w_post_valid[0])
+         $error("[conv_system] frame-end mark without a feature: LAST_DELAY=%0d out of step",
+                LAST_DELAY);
    // synthesis translate_on
 
    assign w_all_kernels_ready = &w_kernel_ready;
    assign w_operands_valid = w_all_kernels_ready && w_window_valid;
-   assign o_valid = w_o_valid[0] ;
+   assign o_valid      = w_o_valid[0];
+   assign o_frame_done = w_o_last[0];
 
    always_ff @(posedge clk or negedge rst_n) begin: write_en_register
       if (!rst_n) begin
@@ -283,7 +325,8 @@ module conv_system
    line_buffer #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
       .LINE_LENGTH(INPUT_SIZE),
-      .LINE_NUM (LINE_NUM)
+      .LINE_NUM (LINE_NUM),
+      .FRAME_ROWS (INPUT_SIZE)
    ) u_line_buffer (
       .clk (clk),
       .rst_n (rst_n),
@@ -293,8 +336,27 @@ module conv_system
 
       .o_rows (w_rows),
       .o_row_done (w_row_done),
-      .o_rows_ready(w_rows_ready)
+      .o_rows_ready(w_rows_ready),
+      .o_frame_end (w_frame_end)
    );
+
+   // ---- frame-end mark --------------------------------------------------------
+   // o_frame_end is high on the cycle the frame's last window is validated.
+   // Delayed LAST_DELAY cycles it arrives with the frame's last feature at the
+   // output FIFO. Reset flip-flops rather than an SRL: no LUTs, and a mark
+   // left over from an abandoned frame is cleared by rst_n.
+   (* srl_style = "register" *) logic r_last_pipe [LAST_DELAY];
+
+   always_ff @(posedge clk or negedge rst_n) begin: last_pipe
+      if (!rst_n) begin
+         for (int s = 0; s < LAST_DELAY; s++) r_last_pipe[s] <= 1'b0;
+      end else begin
+         r_last_pipe[0] <= w_frame_end && w_all_kernels_ready;
+         for (int s = 1; s < LAST_DELAY; s++) r_last_pipe[s] <= r_last_pipe[s-1];
+      end
+   end: last_pipe
+
+   assign w_post_last = r_last_pipe[LAST_DELAY-1];
 
    window_generator #(
       .PIXEL_WIDTH(PIXEL_WIDTH),
@@ -459,9 +521,11 @@ module conv_system
 
             .i_valid (w_post_valid[i]),
             .i_data (w_post_feature[i]),
+            .i_last (w_post_last),
 
             .o_data (o_feature[i]),
-            .o_valid(w_o_valid[i])
+            .o_valid(w_o_valid[i]),
+            .o_last (w_o_last[i])
          );
       end : gen_output_fifo
    endgenerate

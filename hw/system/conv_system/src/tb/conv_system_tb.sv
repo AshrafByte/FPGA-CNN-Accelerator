@@ -55,11 +55,16 @@
 //   change to that encoding shows up as a width mismatch instead of silently
 //   truncating.
 //
-// Per-test reset:
-//   kernel_register's load counter and output_fifo's prefill latch are both
-//   sticky, so every test starts from a fresh reset rather than a primed
-//   pipeline. conv_system also gates the datapath behind &w_kernel_ready, so
-//   every lane must be loaded before a frame can stream.
+// Frames and resets:
+//   The single-frame tests start from a fresh reset, so each checks one frame
+//   from a known state. The stream tests reset once and then run several
+//   frames without a reset - back to back, with idle gaps, and with a new
+//   kernel loaded between frames - which is how conv_system is meant to be
+//   driven. o_frame_done is checked on every cycle: it must be high exactly on
+//   the last feature of each frame and never without o_valid. abort_reset
+//   abandons a frame halfway and checks that rst_n recovers the pipeline.
+//   conv_system gates the datapath behind &w_kernel_ready, so every lane must
+//   be loaded before a frame can stream.
 //------------------------------------------------------------------------------
 module conv_system_tb;
 
@@ -113,6 +118,7 @@ module conv_system_tb;
    logic [SEL_WIDTH-1:0] i_select_kernel = '0;
    feature_t             o_feature [NUM_KERNELS];
    logic                 o_valid;
+   logic                 o_frame_done;
 
    clk_gen #(.CLK_PERIOD(CLK_PERIOD)) u_clk_gen (.clk(clk));
 
@@ -127,7 +133,7 @@ module conv_system_tb;
       .clk(clk), .rst_n(rst_n),
       .i_data(i_data), .i_pixel_valid(i_pixel_valid),
       .i_weight_valid(i_weight_valid), .i_select_kernel(i_select_kernel),
-      .o_feature(o_feature), .o_valid(o_valid)
+      .o_feature(o_feature), .o_valid(o_valid), .o_frame_done(o_frame_done)
    );
 
    //---------------------------------------------------------------------------
@@ -144,6 +150,8 @@ module conv_system_tb;
    int    tb_errors;
    int    tb_tests_failed;
    int    tb_tests_run;
+   int    tb_frames_done;    // o_frame_done pulses this test
+   bit    tb_ignore;         // monitor off while a frame is being abandoned
 
    function automatic void fail(string msg);
       tb_test_errors++;
@@ -162,17 +170,29 @@ module conv_system_tb;
    always @(posedge clk) begin
       feature_t expected;
       int       index;
-      if (o_valid !== 1'b1) ;
-      else if (tb_expected[0].size() == 0)
-         fail($sformatf("o_valid after all %0d expected feature(s) consumed", tb_checked));
+      int       offset;
+      if (tb_ignore) ;
       else begin
-         index = tb_checked++;
-         for (int k = 0; k < NUM_KERNELS; k++) begin
-            expected = tb_expected[k].pop_front();
-            if (o_feature[k] !== expected)
-               fail($sformatf("feature %0d (row %0d, col %0d) kernel %0d: got %0d, expected %0d",
-                              index, index / OUTPUT_SIZE, index % OUTPUT_SIZE,
-                              k, o_feature[k], expected));
+         if (o_frame_done === 1'b1 && o_valid !== 1'b1)
+            fail("o_frame_done asserted without o_valid");
+         if (o_valid !== 1'b1) ;
+         else if (tb_expected[0].size() == 0)
+            fail($sformatf("o_valid after all %0d expected feature(s) consumed", tb_checked));
+         else begin
+            index  = tb_checked++;
+            offset = index % FRAME_FEATURES;
+            for (int k = 0; k < NUM_KERNELS; k++) begin
+               expected = tb_expected[k].pop_front();
+               if (o_feature[k] !== expected)
+                  fail($sformatf(
+                     "frame %0d feature %0d (row %0d, col %0d) kernel %0d: got %0d, expected %0d",
+                     index / FRAME_FEATURES, offset, offset / OUTPUT_SIZE, offset % OUTPUT_SIZE,
+                     k, o_feature[k], expected));
+            end
+            if ((o_frame_done === 1'b1) != (offset == FRAME_FEATURES - 1))
+               fail($sformatf("o_frame_done=%0b on frame %0d feature %0d of %0d",
+                              o_frame_done, index / FRAME_FEATURES, offset, FRAME_FEATURES));
+            if (o_frame_done === 1'b1) tb_frames_done++;
          end
       end
    end
@@ -278,7 +298,9 @@ module conv_system_tb;
       @(posedge clk);   // covers the one-cycle r_weight_write_en tail
    endtask
 
-   task automatic stream_frame();
+   // idle_after = 0 leaves i_pixel_valid high, so the caller's next frame starts
+   // on the very next cycle (frames back to back).
+   task automatic stream_frame(bit idle_after = 1'b1);
       for (int r = 0; r < INPUT_SIZE; r++)
          for (int c = 0; c < INPUT_SIZE; c++) begin
             if (STALL) begin
@@ -298,12 +320,15 @@ module conv_system_tb;
             i_data        <= tb_image[r][c];
             @(posedge clk);
          end
-      i_pixel_valid <= 1'b0;
-      i_data        <= '0;
-      @(posedge clk);
+      if (idle_after) begin
+         i_pixel_valid <= 1'b0;
+         i_data        <= '0;
+         @(posedge clk);
+      end
    endtask
 
-   task automatic drain_and_check();
+   // Wait until every feature expected so far has been produced.
+   task automatic wait_drained();
       int idle = 0;
       while (tb_expected[0].size() != 0 && idle < DRAIN_TIMEOUT) begin
          @(posedge clk);
@@ -311,11 +336,50 @@ module conv_system_tb;
       end
       if (tb_expected[0].size() != 0)
          fail($sformatf("timed out with %0d feature(s) undrained", tb_expected[0].size()));
+   endtask
 
+   task automatic drain_and_check(int frames = 1);
+      wait_drained();
       repeat (20) @(posedge clk);   // catch any trailing spurious valid
 
-      if (tb_checked != FRAME_FEATURES)
-         fail($sformatf("frame produced %0d feature(s), expected %0d", tb_checked, FRAME_FEATURES));
+      if (tb_checked != frames * FRAME_FEATURES)
+         fail($sformatf("%0d frame(s) produced %0d feature(s), expected %0d",
+                        frames, tb_checked, frames * FRAME_FEATURES));
+      if (tb_frames_done != frames)
+         fail($sformatf("%0d o_frame_done pulse(s) for %0d frame(s)", tb_frames_done, frames));
+   endtask
+
+   task automatic start_test(string name);
+      tb_test        = name;
+      tb_test_errors = 0;
+      tb_checked     = 0;
+      tb_clamped     = 0;
+      tb_frames_done = 0;
+      tb_tests_run++;
+      foreach (tb_expected[k]) tb_expected[k].delete();
+
+      apply_reset(clk, 5, rst_n);
+      i_data <= '0; i_pixel_valid <= 1'b0; i_weight_valid <= 1'b0; i_select_kernel <= '0;
+      @(posedge clk);
+   endtask
+
+   task automatic load_random_kernels();
+      for (int k = 0; k < NUM_KERNELS; k++) begin
+         for (int i = 0; i < WINDOW_ELEMENTS; i++)
+            tb_kernel[k][i] = weight_t'($urandom_range(0, 255));
+         push_weights(SEL_WIDTH'(k), tb_kernel[k]);
+      end
+      repeat (2) @(posedge clk);
+   endtask
+
+   task automatic end_test(string name, string what);
+      if (tb_test_errors == 0)
+         $display("[PASS] %s: %s", name, what);
+      else begin
+         tb_tests_failed++;
+         $display("[FAIL] %s: %0d error(s)", name, tb_test_errors);
+      end
+      rst_n = 1'b0;
    endtask
 
    //---------------------------------------------------------------------------
@@ -334,6 +398,7 @@ module conv_system_tb;
       tb_test_errors = 0;
       tb_checked     = 0;
       tb_clamped     = 0;
+      tb_frames_done = 0;
       tb_tests_run++;
       foreach (tb_expected[k]) tb_expected[k].delete();
 
@@ -369,6 +434,80 @@ module conv_system_tb;
       end
 
       rst_n = 1'b0;
+   endtask
+
+   //---------------------------------------------------------------------------
+   // Continuous streaming: one reset, then `frames` frames with new images.
+   //   gap_mode 0: back to back - the next frame's first pixel follows the
+   //               previous frame's last pixel on the next cycle
+   //            1: a random idle gap of 1..3*INPUT_SIZE cycles between frames
+   //            2: wait for o_frame_done before the next frame
+   //   reload: new random kernels before every frame after the first, loaded
+   //           once the previous frame has drained (weights must not change
+   //           under a frame in flight).
+   //---------------------------------------------------------------------------
+   task automatic run_stream_test(string name, int frames, int gap_mode, bit reload);
+      start_test(name);
+
+      for (int f = 0; f < frames; f++) begin
+         fill_image((f % 3 == 1) ? IMAGE_RAMP : (f % 3 == 2) ? IMAGE_MAX : IMAGE_RANDOM);
+         if (f == 0 || reload) begin
+            if (f > 0) wait_drained();
+            load_random_kernels();
+         end
+
+         expect_frame();
+         stream_frame(gap_mode != 0 || reload || f == frames - 1);
+
+         if (f < frames - 1) begin
+            if (gap_mode == 1)
+               repeat ($urandom_range(1, 3 * INPUT_SIZE)) @(posedge clk);
+            else if (gap_mode == 2) begin
+               int waited = 0;
+               while (tb_frames_done < f + 1 && waited < DRAIN_TIMEOUT) begin
+                  @(posedge clk);
+                  waited++;
+               end
+               if (tb_frames_done < f + 1) fail($sformatf("no o_frame_done for frame %0d", f));
+            end
+         end
+      end
+
+      drain_and_check(frames);
+      end_test(name, $sformatf("%0d frames of %0d features x %0d kernel(s), no reset between",
+                               frames, FRAME_FEATURES, NUM_KERNELS));
+   endtask
+
+   // Abandon a frame partway through a row, reset, and require the next frame
+   // to be exact: rst_n must clear the row count, the prefill latch, the
+   // pipeline and the frame-end mark of the abandoned frame.
+   task automatic run_abort_test(string name);
+      start_test(name);
+      fill_image(IMAGE_RANDOM);
+      load_random_kernels();
+
+      tb_ignore = 1'b1;
+      for (int p = 0; p < (INPUT_SIZE * INPUT_SIZE) / 2 + INPUT_SIZE / 3; p++) begin
+         i_pixel_valid <= 1'b1;
+         i_data        <= tb_image[p / INPUT_SIZE][p % INPUT_SIZE];
+         @(posedge clk);
+      end
+      i_pixel_valid <= 1'b0;
+      i_data        <= '0;
+      repeat (8) @(posedge clk);
+      apply_reset(clk, 5, rst_n);
+      i_data <= '0; i_pixel_valid <= 1'b0; i_weight_valid <= 1'b0; i_select_kernel <= '0;
+      @(posedge clk);
+      tb_ignore = 1'b0;
+
+      fill_image(IMAGE_RANDOM);
+      load_random_kernels();
+      if (o_valid === 1'b1) fail("o_valid asserted after the reset");
+      expect_frame();
+      stream_frame();
+      drain_and_check(1);
+      end_test(name, $sformatf("frame abandoned at pixel %0d, reset, next frame exact",
+                               (INPUT_SIZE * INPUT_SIZE) / 2 + INPUT_SIZE / 3));
    endtask
 
    //---------------------------------------------------------------------------
@@ -440,6 +579,14 @@ module conv_system_tb;
       fill_image(IMAGE_RANDOM);
       for (int k = 0; k < NUM_KERNELS; k++) set_rotated(k, ascending);
       run_frame_test("unused_select", 1);
+
+      // several frames after one reset: the way conv_system is meant to run
+      run_stream_test("stream_back_to_back",  4, 0, 1'b0);
+      run_stream_test("stream_idle_gaps",     3, 1, 1'b0);
+      run_stream_test("stream_kernel_reload", 3, 2, 1'b1);
+
+      // a partial frame is recovered by rst_n
+      run_abort_test("abort_reset");
 
       $display("============================================================");
       if (tb_errors == 0)

@@ -19,15 +19,20 @@
 //   0x01C PIXEL         WO  [7:0] next pixel
 //   0x020 PIXELS4       WO  four pixels in one write, byte 0 first
 //   0x024 WEIGHT_COUNT  RO  weights accepted since reset
-//   0x028 PIXEL_COUNT   RO  pixels accepted since reset
-//   0x02C OUT_COUNT     RO  features captured since reset
-//   0x030 LATENCY       RO  clock cycles from the first pixel to the first feature
-//   0x034 FRAME_CYCLES  RO  clock cycles from the first pixel to the last feature
+//   0x028 PIXEL_COUNT   RO  pixels accepted for the current frame
+//   0x02C OUT_COUNT     RO  features captured for the current frame
+//   0x030 LATENCY       RO  clock cycles from the frame's first pixel to its first feature
+//   0x034 FRAME_CYCLES  RO  clock cycles from the frame's first pixel to its last feature
+//   0x038 FRAME_COUNT   RO  frames completed since reset (conv_system o_frame_done pulses)
 //   0x10000 + (k << (IDX_BITS + 2)) + 4*i   RO  feature i of lane k, sign-extended
 //
-// Protocol (one frame): CTRL = 1, CTRL = 0; for every lane k write KERNEL_SEL = k
-// and the N*N weights; write the W*W pixels (PIXELS4 and PIXEL); wait for
-// STATUS[2]; read OUT_SIZE*OUT_SIZE features per lane.
+// Protocol: CTRL = 1, CTRL = 0 once; for every lane k write KERNEL_SEL = k and
+// the N*N weights. Then, for every frame: write the W*W pixels (PIXELS4 and
+// PIXEL); wait for STATUS[2]; read OUT_SIZE*OUT_SIZE features per lane. No reset
+// between frames: STATUS[2] is set by conv_system's o_frame_done and held until
+// the next frame's first pixel, which also clears the per-frame counters. A new
+// kernel may be written between frames, after STATUS[2]. The result memory holds
+// one frame, so read it before sending the next one.
 //
 // Tap order: a new window column enters at column 0, so each kernel row is
 // written right to left (the same order as sw/conv_lab hardware.contract.pack_kernel).
@@ -95,6 +100,7 @@ module conv_axi_lite
    localparam logic [11:0] REG_OUT_COUNT    = 12'h02C;
    localparam logic [11:0] REG_LATENCY      = 12'h030;
    localparam logic [11:0] REG_FRAME_CYCLES = 12'h034;
+   localparam logic [11:0] REG_FRAME_COUNT  = 12'h038;
 
    typedef logic        [PIXEL_WIDTH-1:0]   data_t;
    typedef logic signed [FEATURE_WIDTH-1:0] feature_t;
@@ -200,6 +206,7 @@ module conv_axi_lite
    // ---- accelerator --------------------------------------------------------------
    feature_t w_core_feature [NUM_KERNELS];
    logic     w_core_valid;
+   logic     w_core_frame_done;
 
    conv_system #(
       .PIXEL_WIDTH   (PIXEL_WIDTH),
@@ -216,22 +223,28 @@ module conv_axi_lite
       .i_weight_valid  (r_core_weight_valid),
       .i_select_kernel (r_core_select),
       .o_feature       (w_core_feature),
-      .o_valid         (w_core_valid)
+      .o_valid         (w_core_valid),
+      .o_frame_done    (w_core_frame_done)
    );
 
    // ---- counters -------------------------------------------------------------------
+   // r_done follows conv_system: set by o_frame_done (the frame's last feature,
+   // which is still captured), cleared by the next frame's first pixel together
+   // with the per-frame counters. The accelerator itself is not reset.
    logic [31:0]       r_weight_count;
    logic [31:0]       r_pixel_count;
    logic [31:0]       r_cycle;
    logic [31:0]       r_latency;
    logic [31:0]       r_frame_cycles;
+   logic [31:0]       r_frame_count;
    logic [IDX_BITS:0] r_out_count;
    logic              r_started;
-   logic              w_done;
+   logic              r_done;
+   logic              w_new_frame;
    logic              w_capture;
 
-   assign w_done    = (r_out_count == (IDX_BITS+1)'(OUT_PIXELS));
-   assign w_capture = w_core_valid && !w_done;
+   assign w_new_frame = r_core_pixel_valid && r_done;
+   assign w_capture   = w_core_valid && !r_done;
 
    always_ff @(posedge clk or negedge rst_n) begin : counters
       if (!rst_n) begin
@@ -240,27 +253,44 @@ module conv_axi_lite
          r_cycle        <= '0;
          r_latency      <= '0;
          r_frame_cycles <= '0;
+         r_frame_count  <= '0;
          r_out_count    <= '0;
          r_started      <= 1'b0;
+         r_done         <= 1'b0;
       end else if (!r_core_rst_n) begin
          r_weight_count <= '0;
          r_pixel_count  <= '0;
          r_cycle        <= '0;
          r_latency      <= '0;
          r_frame_cycles <= '0;
+         r_frame_count  <= '0;
          r_out_count    <= '0;
          r_started      <= 1'b0;
+         r_done         <= 1'b0;
       end else begin
          if (r_core_weight_valid) r_weight_count <= r_weight_count + 32'd1;
          if (r_core_pixel_valid) begin
-            r_pixel_count <= r_pixel_count + 32'd1;
+            r_pixel_count <= w_new_frame ? 32'd1 : r_pixel_count + 32'd1;
             r_started     <= 1'b1;
          end
-         if (r_started && !w_done) r_cycle <= r_cycle + 32'd1;
-         if (w_capture) begin
-            r_out_count <= r_out_count + 1'b1;
-            if (r_out_count == '0)                             r_latency      <= r_cycle;
-            if (r_out_count == (IDX_BITS+1)'(OUT_PIXELS - 1)) r_frame_cycles <= r_cycle;
+
+         if (w_new_frame) begin
+            r_done         <= 1'b0;
+            r_out_count    <= '0;
+            r_cycle        <= '0;
+            r_latency      <= '0;
+            r_frame_cycles <= '0;
+         end else begin
+            if (r_started && !r_done) r_cycle <= r_cycle + 32'd1;
+            if (w_capture) begin
+               r_out_count <= r_out_count + 1'b1;
+               if (r_out_count == '0) r_latency      <= r_cycle;
+               if (w_core_frame_done) r_frame_cycles <= r_cycle;
+            end
+            if (w_core_frame_done) begin
+               r_done        <= 1'b1;
+               r_frame_count <= r_frame_count + 32'd1;
+            end
          end
       end
    end : counters
@@ -317,8 +347,8 @@ module conv_axi_lite
             REG_GEOMETRY:     w_reg_word = {8'(NUM_KERNELS), 8'(WINDOW_SIZE), 16'(INPUT_SIZE)};
             REG_FORMAT:       w_reg_word = {15'd0, ENABLE_RELU, 8'(IDX_BITS), 8'(FEATURE_WIDTH)};
             REG_CTRL:         w_reg_word = {31'd0, r_soft_reset};
-            REG_STATUS:       w_reg_word = {29'd0, w_done,
-                                            r_started && !w_done,
+            REG_STATUS:       w_reg_word = {29'd0, r_done,
+                                            r_started && !r_done,
                                             r_weight_count >= 32'(WEIGHTS_TOTAL)};
             REG_KERNEL_SEL:   w_reg_word = 32'(r_kernel_sel);
             REG_WEIGHT_COUNT: w_reg_word = r_weight_count;
@@ -326,6 +356,7 @@ module conv_axi_lite
             REG_OUT_COUNT:    w_reg_word = 32'(r_out_count);
             REG_LATENCY:      w_reg_word = r_latency;
             REG_FRAME_CYCLES: w_reg_word = r_frame_cycles;
+            REG_FRAME_COUNT:  w_reg_word = r_frame_count;
             default:          w_reg_word = '0;
          endcase
       end
@@ -362,6 +393,7 @@ module conv_axi_lite
       else        r_heartbeat <= r_heartbeat + 26'd1;
    end : heartbeat
 
-   assign o_leds = {r_heartbeat[25], w_done, r_started && !w_done, r_weight_count >= 32'(WEIGHTS_TOTAL)};
+   assign o_leds = {r_heartbeat[25], r_done, r_started && !r_done,
+                    r_weight_count >= 32'(WEIGHTS_TOTAL)};
 
 endmodule

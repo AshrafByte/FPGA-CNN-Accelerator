@@ -1,7 +1,7 @@
 Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version     : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
-| Date             : Tue Sep 15 00:36:37 2026
+| Date             : Tue Sep 15 13:24:22 2026
 | Host             : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
 | Command          : report_power -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/fpga/bitstream/reports/power.txt}
 | Design           : conv_demo_top
@@ -30,11 +30,11 @@ Table of Contents
 ----------
 
 +--------------------------+--------------+
-| Total On-Chip Power (mW) | 1685.168     |
+| Total On-Chip Power (mW) | 1685.702     |
 | Design Power Budget (mW) | Unspecified* |
 | Power Budget Margin (mW) | NA           |
-| Dynamic (mW)             | 1545.616     |
-| Device Static (mW)       | 139.552      |
+| Dynamic (mW)             | 1546.136     |
+| Device Static (mW)       | 139.566      |
 | Effective TJA (C/W)      | 11.5         |
 | Max Ambient (C)          | 65.6         |
 | Junction Temperature (C) | 44.4         |
@@ -52,21 +52,21 @@ Table of Contents
 +--------------------------+------------+----------+-----------+-----------------+
 | On-Chip                  | Power (mW) | Used     | Available | Utilization (%) |
 +--------------------------+------------+----------+-----------+-----------------+
-| Clocks                   |     5.502  |        3 |       --- |             --- |
-| Slice Logic              |     2.346  |     2603 |       --- |             --- |
-|   LUT as Logic           |     2.028  |      704 |     53200 |            1.32 |
-|   Register               |     0.194  |     1346 |    106400 |            1.27 |
-|   CARRY4                 |     0.120  |       63 |     13300 |            0.47 |
+| Clocks                   |     5.586  |        3 |       --- |             --- |
+| Slice Logic              |     2.580  |     2733 |       --- |             --- |
+|   LUT as Logic           |     2.240  |      712 |     53200 |            1.34 |
+|   Register               |     0.197  |     1426 |    106400 |            1.34 |
+|   CARRY4                 |     0.138  |       70 |     13300 |            0.53 |
 |   LUT as Shift Register  |     0.004  |       77 |     17400 |            0.44 |
 |   LUT as Distributed RAM |    <0.001  |       24 |     17400 |            0.14 |
 |   Others                 |     0.000  |      197 |       --- |             --- |
-| Signals                  |     3.538  |     2386 |       --- |             --- |
-| Block RAM                |     1.276  |      0.5 |       140 |            0.36 |
+| Signals                  |     3.753  |     2557 |       --- |             --- |
+| Block RAM                |     1.217  |      0.5 |       140 |            0.36 |
 | DSPs                     |     5.147  |        9 |       220 |            4.09 |
-| I/O                      |     1.504  |        4 |       125 |            3.20 |
+| I/O                      |     1.550  |        4 |       125 |            3.20 |
 | PS7                      |  1526.290  |        1 |       --- |             --- |
-| Static Power             |   139.552  |          |           |                 |
-| Total                    |  1685.155  |          |           |                 |
+| Static Power             |   139.566  |          |           |                 |
+| Total                    |  1685.689  |          |           |                 |
 +--------------------------+------------+----------+-----------+-----------------+
 
 
@@ -152,58 +152,58 @@ Table of Contents
 +----------------------------------------------------+------------+
 | Name                                               | Power (mW) |
 +----------------------------------------------------+------------+
-| conv_demo_top                                      |  1545.603  |
-|   u_conv                                           |    11.824  |
-|     u_conv_system                                  |     8.029  |
-|       gen_kerenl_register[0].u_kernel_register     |     0.438  |
-|       gen_mac[0].gen_single_chain.u_mac            |     6.262  |
-|       gen_output_fifo[0].u_output_fifo             |     0.570  |
-|         gen_lutram.r_mem_reg_0_63_0_2              |     0.015  |
-|         gen_lutram.r_mem_reg_0_63_12_14            |     0.015  |
-|         gen_lutram.r_mem_reg_0_63_15_15            |     0.015  |
-|         gen_lutram.r_mem_reg_0_63_3_5              |     0.015  |
-|         gen_lutram.r_mem_reg_0_63_6_8              |     0.015  |
-|         gen_lutram.r_mem_reg_0_63_9_11             |     0.015  |
-|       gen_round_sat[0].u_round_saturate            |     0.131  |
-|       u_line_buffer                                |     0.129  |
-|       u_window_generator                           |     0.328  |
-|   u_system                                         |  1532.275  |
-|     system_i                                       |  1532.180  |
-|       axi_interconnect_0                           |     5.400  |
-|         s00_couplers                               |     5.400  |
-|           auto_pc                                  |     5.400  |
-|             inst                                   |     5.400  |
-|               gen_axilite.gen_b2s_conv.axilite_b2s |     5.400  |
-|                 RD.ar_channel_0                    |     1.402  |
-|                   ar_cmd_fsm_0                     |     0.415  |
-|                   cmd_translator_0                 |     0.939  |
-|                     incr_cmd_0                     |     0.417  |
-|                     wrap_cmd_0                     |     0.492  |
-|                 RD.r_channel_0                     |     1.016  |
-|                   rd_data_fifo_0                   |     0.589  |
-|                   transaction_fifo_0               |     0.330  |
-|                 SI_REG                             |     1.576  |
+| conv_demo_top                                      |  1546.123  |
+|   u_conv                                           |    12.406  |
+|     u_conv_system                                  |     8.121  |
+|       gen_kerenl_register[0].u_kernel_register     |     0.428  |
+|       gen_mac[0].gen_single_chain.u_mac            |     6.238  |
+|       gen_output_fifo[0].u_output_fifo             |     0.522  |
+|         gen_lutram.r_mem_reg_0_63_0_2              |     0.014  |
+|         gen_lutram.r_mem_reg_0_63_12_14            |     0.014  |
+|         gen_lutram.r_mem_reg_0_63_15_15            |     0.014  |
+|         gen_lutram.r_mem_reg_0_63_3_5              |     0.014  |
+|         gen_lutram.r_mem_reg_0_63_6_8              |     0.014  |
+|         gen_lutram.r_mem_reg_0_63_9_11             |     0.014  |
+|       gen_round_sat[0].u_round_saturate            |     0.127  |
+|       u_line_buffer                                |     0.250  |
+|       u_window_generator                           |     0.317  |
+|   u_system                                         |  1532.168  |
+|     system_i                                       |  1532.077  |
+|       axi_interconnect_0                           |     5.322  |
+|         s00_couplers                               |     5.322  |
+|           auto_pc                                  |     5.322  |
+|             inst                                   |     5.322  |
+|               gen_axilite.gen_b2s_conv.axilite_b2s |     5.322  |
+|                 RD.ar_channel_0                    |     1.418  |
+|                   ar_cmd_fsm_0                     |     0.389  |
+|                   cmd_translator_0                 |     0.982  |
+|                     incr_cmd_0                     |     0.419  |
+|                     wrap_cmd_0                     |     0.532  |
+|                 RD.r_channel_0                     |     0.954  |
+|                   rd_data_fifo_0                   |     0.542  |
+|                   transaction_fifo_0               |     0.326  |
+|                 SI_REG                             |     1.540  |
 |                   ar.ar_pipe                       |     0.503  |
-|                   aw.aw_pipe                       |     0.454  |
-|                   b.b_pipe                         |     0.179  |
-|                   r.r_pipe                         |     0.440  |
-|                 WR.aw_channel_0                    |     1.061  |
-|                   aw_cmd_fsm_0                     |     0.331  |
-|                   cmd_translator_0                 |     0.670  |
-|                     incr_cmd_0                     |     0.277  |
-|                     wrap_cmd_0                     |     0.370  |
-|                 WR.b_channel_0                     |     0.341  |
-|                   bid_fifo_0                       |     0.211  |
-|                   bresp_fifo_0                     |     0.047  |
-|       processing_system7_0                         |  1526.608  |
-|         inst                                       |  1526.608  |
-|       rst_ps7_100M                                 |     0.173  |
-|         U0                                         |     0.173  |
-|           EXT_LPF                                  |     0.086  |
-|             ACTIVE_LOW_AUX.ACT_LO_AUX              |     0.015  |
-|             ACTIVE_LOW_EXT.ACT_LO_EXT              |     0.028  |
-|           SEQ                                      |     0.083  |
-|             SEQ_COUNTER                            |     0.034  |
+|                   aw.aw_pipe                       |     0.441  |
+|                   b.b_pipe                         |     0.169  |
+|                   r.r_pipe                         |     0.426  |
+|                 WR.aw_channel_0                    |     1.077  |
+|                   aw_cmd_fsm_0                     |     0.346  |
+|                   cmd_translator_0                 |     0.673  |
+|                     incr_cmd_0                     |     0.283  |
+|                     wrap_cmd_0                     |     0.361  |
+|                 WR.b_channel_0                     |     0.330  |
+|                   bid_fifo_0                       |     0.202  |
+|                   bresp_fifo_0                     |     0.046  |
+|       processing_system7_0                         |  1526.593  |
+|         inst                                       |  1526.593  |
+|       rst_ps7_100M                                 |     0.163  |
+|         U0                                         |     0.163  |
+|           EXT_LPF                                  |     0.081  |
+|             ACTIVE_LOW_AUX.ACT_LO_AUX              |     0.014  |
+|             ACTIVE_LOW_EXT.ACT_LO_EXT              |     0.025  |
+|           SEQ                                      |     0.078  |
+|             SEQ_COUNTER                            |     0.035  |
 +----------------------------------------------------+------------+
 
 

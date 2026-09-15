@@ -3,12 +3,12 @@
 //
 // Description:
 //   Pipelined binary reduction tree that sums NUM_INPUTS product values into
-//   a single accumulated result. The tree consists of NUM_STAGES combinational
-//   adder levels, with a register stage after each level. An additional input
-//   register stage captures the incoming product array and valid signal.
+//   a single accumulated result. The tree consists of NUM_STAGES = $clog2(NUM_INPUTS)
+//   adder levels, with a register stage after each level. The products arrive
+//   already registered (the DSP P register of multiplier_array), so the first
+//   level adds them directly.
 //
 // Architecture:
-//   - Stage 0 captures the incoming product array and i_valid.
 //   - Each reduction stage performs pairwise additions between operands from
 //     the previous stage and registers the results.
 //   - The number of operands is approximately halved at every stage until
@@ -21,10 +21,8 @@
 //     corresponding data.
 //
 // Data Flow:
-//   - i_products are captured into the stage-0 registers together with
-//     i_valid.
-//   - Pairwise additions are performed combinationally between registered
-//     operands.
+//   - The first level adds pairs of i_products; i_valid enters the valid
+//     pipeline on the same edge.
 //   - Each reduction level registers its results before passing them to the
 //     following level.
 //   - o_sum provides the final accumulated result.
@@ -34,14 +32,12 @@
 //   - One register stage is used after each binary reduction level.
 //   - The combinational critical path of each reduction stage contains only
 //     one adder.
-//   - The complete input-to-output latency is NUM_STAGES + 1 clock cycles,
-//     including the initial input register stage.
+//   - The complete input-to-output latency is NUM_STAGES clock cycles.
 //
 // Assumptions:
 //   - i_products are stable and valid when i_valid is asserted.
-//   - NUM_INPUTS is greater than zero.
-//   - Product values are unsigned. Signed arithmetic must be introduced
-//     explicitly if signed products are required.
+//   - NUM_INPUTS is at least 2 (NUM_STAGES = 0 is not supported).
+//   - Products and sums are signed (product_t is logic signed).
 //   - The accumulator width is sufficient to represent the sum of all
 //     NUM_INPUTS products.
 //

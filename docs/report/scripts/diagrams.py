@@ -839,8 +839,8 @@ p.edge(wr, feat, ex=(1, 0.5), en=(1, 0.5), pts=[(2005, 120), (2005, 455)])
 p.edge(img, ref)
 p.edge(feat, har)
 p.edge(ref, har)
-p.node("pass", 540, 550, 430, 60, "<b>unit tests</b>  94 pass")
-reg_ = p.node("pass", 1000, 550, 990, 60, "<b>hardware regression</b>  61 pass · 289 328 features")
+p.node("pass", 540, 550, 430, 60, "<b>unit tests</b>  100 pass")
+reg_ = p.node("pass", 1000, 550, 990, 60, "<b>hardware regression</b>  62 pass · 307 328 features")
 p.edge(har, reg_, ex=(0.5, 1), en=(0.5, 0), pts=[(875, 525), (1495, 525)])
 
 # =============================================================================

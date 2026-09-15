@@ -1,7 +1,7 @@
 ../../../ip/kernel_register/src/rtl/kernel_register.sv
 ../../../ip/line_buffer/src/rtl/line_buffer.sv
 ../../../ip/window_generator/src/rtl/window_generator.sv
-../../../ip/mac_cascade/src/rtl/mac_cascade.sv
+../../../ip/mac_row_chain/src/rtl/mac_row_chain.sv
 ../../../ip/round_saturate/src/rtl/round_saturate.sv
 ../../../ip/relu_unit/src/rtl/relu_unit.sv
 -F ../../../ip/output_fifo/sim/rtl.f

@@ -1,0 +1,17 @@
+n,best_design,best_fom,system_is,system_over_best
+2,conv_single_chain,0.032325,= conv_single_chain (MAC_ARCH 0 selects MAC_SEL 3),1
+3,conv_single_chain,0.015301,= conv_single_chain (MAC_ARCH 0 selects MAC_SEL 3),1
+4,conv_single_chain,0.008398,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2),0.922957847106454
+5,conv_row_chain,0.005108,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2),1
+6,conv_row_chain,0.003175,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2),1
+7,conv_row_chain,0.002109,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2),1
+8,conv_row_chain,0.001481,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2),1
+9,conv_row_chain,0.00105,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),0.720952380952381
+10,conv_row_chain,0.000641,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),0.882995319812793
+11,conv_row_chain,0.000483,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),0.842650103519669
+12,conv_tree,0.000388,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),1
+13,conv_tree,0.000321,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),1
+14,conv_tree,0.000257,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),1
+15,conv_tree,0.000184,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),1
+16,conv_tree,0.000137,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),1
+17,conv_tree,0.000105,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1),1

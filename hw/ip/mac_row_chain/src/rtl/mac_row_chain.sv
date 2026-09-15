@@ -33,7 +33,7 @@
 //     before streaming begins), so they need no matching skew.
 //   - The WINDOW_SIZE row sums emerge aligned, because every chain is
 //     structurally identical, and are reduced by a balanced adder tree. For a
-//     3x3 window that is two adds, against the fifteen the full tree needed.
+//     3x3 window that is two adds, against the eight the full tree needed.
 //
 // Bit widths in the reduction tree:
 //   - Each product fits PRODUCT_WIDTH signed bits: a 9-bit non-negative
@@ -51,8 +51,8 @@
 //     ROW_WIDTH + $clog2(WINDOW_SIZE) >= PRODUCT_WIDTH + $clog2(WINDOW_SIZE**2).
 //
 // Timing:
-//   - Latency is WINDOW_SIZE (chain) + $clog2(WINDOW_SIZE) (row reduction)
-//     cycles. o_valid reproduces i_valid delayed by exactly that much, so the
+//   - Latency is 2 + WINDOW_SIZE (input skew register, MREG, chain) +
+//     $clog2(WINDOW_SIZE) (row reduction) cycles. o_valid reproduces i_valid delayed by exactly that much, so the
 //     feature order and count are unchanged from the adder-tree version - only
 //     the absolute latency differs.
 //

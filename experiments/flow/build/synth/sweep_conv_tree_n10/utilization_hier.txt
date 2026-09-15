@@ -1,0 +1,35 @@
+Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
+| Date         : Tue Sep 15 19:13:40 2026
+| Host         : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/experiments/flow/build/synth/sweep_conv_tree_n10/utilization_hier.txt}
+| Design       : conv_system
+| Device       : 7z020clg400-1
+| Design State : Synthesized
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------------------------------+------------------+------------+------------+---------+------+------+--------+--------+--------------+
+|                  Instance                  |      Module      | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | DSP48 Blocks |
++--------------------------------------------+------------------+------------+------------+---------+------+------+--------+--------+--------------+
+| conv_system                                |            (top) |       1963 |       1784 |      88 |   91 | 3545 |      0 |      0 |          100 |
+|   (conv_system)                            |            (top) |          0 |          0 |       0 |    0 |   31 |      0 |      0 |            0 |
+|   gen_kerenl_register[0].u_kernel_register |  kernel_register |         19 |         19 |       0 |    0 |  807 |      0 |      0 |            0 |
+|   gen_mac[0].gen_tree.u_adder_tree         |       adder_tree |       1725 |       1706 |       0 |   19 | 1792 |      0 |      0 |            0 |
+|   gen_mac[0].gen_tree.u_multiplier_array   | multiplier_array |         50 |         50 |       0 |    0 |    0 |      0 |      0 |          100 |
+|   gen_output_fifo[0].u_output_fifo         |      output_fifo |        129 |         41 |      88 |    0 |   36 |      0 |      0 |            0 |
+|   gen_round_sat[0].u_round_saturate        |   round_saturate |          2 |          2 |       0 |    0 |   35 |      0 |      0 |            0 |
+|   u_line_buffer                            |      line_buffer |         78 |          6 |       0 |   72 |   39 |      0 |      0 |            0 |
+|   u_window_generator                       | window_generator |         10 |         10 |       0 |    0 |  805 |      0 |      0 |            0 |
++--------------------------------------------+------------------+------------+------------+---------+------+------+--------+--------+--------------+
+
+

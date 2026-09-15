@@ -25,14 +25,14 @@
 //
 // Architecture:
 //   - This module has NO knowledge of external memory, addressing, or
-//     where i_pixel comes from — it only reacts to i_pixel/i_valid_in as
+//     where i_data comes from — it only reacts to i_data/i_pixel_valid as
 //     presented, cycle by cycle.
 //   - Pixel acceptance (w_pixel_write_en) is a one-cycle-delayed registered
-//     mirror of i_valid_in, matching the latency convention every other
+//     mirror of i_pixel_valid, matching the latency convention every other
 //     stage uses.
 //   - line_buffer stores only the WINDOW_SIZE-1 rows preceding the row
-//     currently streaming in — the current row is consumed live, directly
-//     off i_pixel, by window_generator.
+//     currently streaming in — the current row is consumed live, from the
+//     input register r_data, by window_generator.
 //   - kernel_register holds statically-loaded kernel weights.
 //   - The MAC stage computes the windowed multiply-accumulate. All three
 //     architectures reproduce their input valid pattern exactly, only the
@@ -58,7 +58,12 @@
 //   - rst_n is only needed at power-up or to abandon a partial frame.
 //
 // Assumptions:
-//   - Caller presents i_pixel/i_valid_in in raster order for a
+//   - WINDOW_SIZE >= 2 and INPUT_SIZE > WINDOW_SIZE (checked in simulation):
+//     the line buffer and the output FIFO need at least one stored row and
+//     one row-edge gap.
+//   - i_select_kernel is used unregistered while the weight write enable is
+//     registered, so hold it one cycle past a lane's last weight.
+//   - Caller presents i_data/i_pixel_valid in raster order for a
 //     WINDOW_SIZE x WINDOW_SIZE convolution over INPUT_SIZE x INPUT_SIZE
 //     frames, every pixel of a frame exactly once; i_pixel_valid may drop at
 //     any time (stalls).
@@ -169,9 +174,10 @@ module conv_system
    // +2250 FF cost ~20 mW and lose to the row chains. The row chains stop
    // closing 250 MHz at 11x11, where the tree takes over.
    //
-   // Rule (N = WINDOW_SIZE, K = NUM_KERNELS). The limits sit one step inside
-   // the measured boundaries above (row chains closed 250 MHz up to 9x9, the
-   // device has 220 DSPs) to keep a margin:
+   // Rule (N = WINDOW_SIZE, K = NUM_KERNELS). The row-chain and DSP limits sit
+   // one step inside the measured boundaries above (row chains closed 250 MHz up
+   // to 9x9, the device has 220 DSPs) to keep a margin; the single-chain limit is
+   // set by FoM (from 5x5 its skew flip-flops cost more than the row chains):
    //
    //   One kernel (K = 1)
    //     N <= CHAIN_MAX_N (3)                          -> single chain (conv_single_chain)
@@ -183,8 +189,8 @@ module conv_system
    //     N^2 * K <= ROW_CHAIN_MAX_DSP (180)            -> row chains   (conv_row_chain)
    //     otherwise                                     -> tree         (conv_tree)
    //
-   // Row chains need N >= 2 (their row-sum tree has log2(N) levels), so a
-   // 1x1 multi-kernel build falls to the tree.
+   // Row chains need N >= 2 (their row-sum tree has log2(N) levels). N = 1 is
+   // not supported by any architecture (see Assumptions).
    localparam int TOTAL_DSP = WINDOW_ELEMENTS * NUM_KERNELS;
 
    localparam bit ROW_OK    = (WINDOW_SIZE >= 2) && (WINDOW_SIZE <= ROW_CHAIN_MAX_N);
@@ -208,8 +214,8 @@ module conv_system
    // ---- automatic FIFO memory selection -----------------------------------------
    // Picks the output_fifo memory with the lower figure-of-merit cost,
    // FoM = throughput / (P x (LUTs + 50*DSPs + 100*BRAMs)). Calibrated on
-   // routed runs of this FIFO (xc7z020, 16-bit features); see experiments/conv_tree/system/conv_system/src/rtl/conv_system.sv
-   // for the derivation. Only a memory that fits one block (<= 36 kbit) is
+   // routed runs of this FIFO (xc7z020, 16-bit features); the derivation is in the
+   // report (docs/report, output FIFO section). Only a memory that fits one block (<= 36 kbit) is
    // considered.
    localparam int FIFO_RAM_DEPTH     = 1 << $clog2(FIFO_DEPTH + 1);
    localparam int FIFO_ADDR_W        = $clog2(FIFO_RAM_DEPTH);
@@ -266,6 +272,9 @@ module conv_system
 
    // synthesis translate_off
    initial begin
+      if (WINDOW_SIZE < 2 || INPUT_SIZE <= WINDOW_SIZE)
+         $fatal(1, "[conv_system] needs WINDOW_SIZE >= 2 and INPUT_SIZE > WINDOW_SIZE (got %0d, %0d)",
+                WINDOW_SIZE, INPUT_SIZE);
       $display("[conv_system] WINDOW_SIZE=%0d NUM_KERNELS=%0d MAC_SEL=%0d (%s)  DSP=%0d  FIFO_BRAM=%0d",
                WINDOW_SIZE, NUM_KERNELS, MAC_SEL,
                (MAC_SEL == 3) ? "single chain" : (MAC_SEL == 2) ? "row chains" : "tree",

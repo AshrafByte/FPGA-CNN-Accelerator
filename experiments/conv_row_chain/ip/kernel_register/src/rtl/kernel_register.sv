@@ -12,15 +12,18 @@
 //     decode (the indexed version spent 16 LUTs on that decode).
 //   - The shift is a register chain with a clock enable. The asynchronous
 //     reset keeps it out of SRLs, which would cost LUTs.
-//   - o_ready rises once exactly WINDOW_ELEMENTS weights have been loaded
-//     since reset. A further write clears it, as before, so an over-long load
-//     is visible rather than silently accepted.
+//   - o_ready rises once exactly WINDOW_ELEMENTS weights have been loaded.
+//     A write while o_ready is high starts a new load: the count restarts at
+//     one, so a full reload of WINDOW_ELEMENTS weights raises o_ready again
+//     without a reset, and an over-long load leaves it low - visible rather
+//     than silently accepted.
 //
 // Timing:
 //   - Zero additional latency: o_weights reads the registers directly.
 //
 // Assumptions:
-//   - The kernel is loaded after reset and before the frame streams.
+//   - The kernel is loaded before a frame streams and stays constant during
+//     it; it may be reloaded between frames.
 //
 // Parameters:
 //   PIXEL_WIDTH : Width of each weight.
@@ -61,7 +64,7 @@ module kernel_register
          if (r_loaded_cnt < load_cnt_t'(WINDOW_ELEMENTS))
             r_loaded_cnt <= r_loaded_cnt + 1'b1;
          else
-            r_loaded_cnt <= '0;
+            r_loaded_cnt <= load_cnt_t'(1);   // this write is the first of a new load
       end
    end: kernel_registers
 

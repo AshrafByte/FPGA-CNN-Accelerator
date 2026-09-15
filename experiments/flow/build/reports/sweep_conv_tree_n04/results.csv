@@ -1,0 +1,3 @@
+tag,benchmark,lut,lutram,ff,dsp,bram,resource_points,wns_ns,fmax_mhz,power_mw,dynamic_mw,static_mw,nets_matched,throughput_px_per_cycle,fom
+sweep_conv_tree_n04,default,373,69,663,16,0,1173,2.002,235.4,165.728,60.482,105.246,"NA",1,0.005144
+sweep_conv_tree_n04,random,373,69,663,16,0,1173,2.002,235.4,147.374,42.394,104.980,"20%   (340/1730)",1,0.005785

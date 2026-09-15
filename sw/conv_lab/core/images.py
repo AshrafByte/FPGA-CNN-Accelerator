@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Final, Literal
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 MAX_DIMENSION: Final = 512  # a 512x512 frame is already ~10s of simulated stream
 
-PatternName = Literal["ramp", "checker", "circle", "bars", "noise"]
-PATTERNS: Final[tuple[PatternName, ...]] = ("ramp", "checker", "circle", "bars", "noise")
+PatternName = Literal["ramp", "checker", "circle", "bars", "noise", "edges"]
+PATTERNS: Final[tuple[PatternName, ...]] = ("ramp", "checker", "circle", "bars", "noise", "edges")
 
 #: Checker tiles and bars are never narrower than this. At 2 px - what size // 8
 #: gives a 16x16 frame - every 3x3 window straddles an edge, so an edge kernel
@@ -57,6 +57,44 @@ def load_image(path: str | Path, size: int) -> np.ndarray:
     return np.asarray(gray, dtype=np.uint8)
 
 
+def _random_edges(size: int, seed: int) -> np.ndarray:
+    """Edges of random direction, length, curvature and contrast.
+
+    A Voronoi mosaic of irregular cells in random grey levels, overlaid with ellipses,
+    polygons and strokes. Unlike checker and bars no edge direction or spacing repeats,
+    so every kernel orientation meets edges. Shape counts and sizes scale with the
+    frame (the reference design is 128x128), so the density is the same at any size.
+    """
+    rng = np.random.default_rng(seed)
+    scale = size / 128
+    area = scale * scale
+    seeds = rng.uniform(0, size, size=(max(4, round(34 * area)), 2))
+    greys = rng.integers(20, 236, size=len(seeds))
+    frame = np.empty((size, size), dtype=np.uint8)
+    cols = np.arange(size)
+    for r in range(size):  # row by row: never a size x size x cells distance array
+        dist = (r - seeds[:, 0]) ** 2 + (cols[:, None] - seeds[:, 1]) ** 2
+        frame[r] = greys[np.argmin(dist, axis=1)]
+
+    img = Image.fromarray(frame)
+    draw = ImageDraw.Draw(img)
+    for _ in range(max(2, round(7 * area))):  # ellipses: curved edges of every slope
+        x0, y0 = rng.uniform(-10 * scale, size - 20 * scale, size=2)
+        w, h = rng.uniform(12 * scale, 48 * scale, size=2)
+        draw.ellipse((x0, y0, x0 + w, y0 + h), fill=int(rng.integers(0, 256)))
+    for _ in range(max(1, round(5 * area))):  # triangles and quadrilaterals
+        cx, cy = rng.uniform(0, size, size=2)
+        corners = int(rng.integers(3, 5))
+        points = [(cx + rng.uniform(-22, 22) * scale, cy + rng.uniform(-22, 22) * scale)
+                  for _ in range(corners)]
+        draw.polygon(points, fill=int(rng.integers(0, 256)))
+    for _ in range(max(2, round(9 * area))):  # thin and thick strokes at random angles
+        x0, y0, x1, y1 = rng.uniform(0, size, size=4)
+        width = max(1, round(int(rng.integers(1, 4)) * scale))
+        draw.line((x0, y0, x1, y1), fill=int(rng.integers(0, 256)), width=width)
+    return np.asarray(img, dtype=np.uint8)
+
+
 def generate_pattern(name: PatternName, size: int, *, seed: int = 0) -> np.ndarray:
     """Synthetic test frames, for when the point is the hardware and not the picture."""
     rows, cols = np.ogrid[0:size, 0:size]
@@ -77,6 +115,8 @@ def generate_pattern(name: PatternName, size: int, *, seed: int = 0) -> np.ndarr
             frame = np.where((cols // bar) % 2 == 0, 240, 15) + np.zeros_like(rows)
         case "noise":
             frame = np.random.default_rng(seed).integers(0, 256, size=(size, size))
+        case "edges":
+            frame = _random_edges(size, seed)
         case _:
             raise ImageError(f"unknown pattern {name!r}; choose one of: {', '.join(PATTERNS)}")
 

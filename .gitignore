@@ -180,3 +180,13 @@ fpga/**/*.dcp
 fpga/bitstream/build/
 fpga/sim/build/
 fpga/logs/
+
+# competition upload package rebuilt locally
+submission/
+
+# experiments flow (experiments/flow): same policy - reports kept, checkpoints, simulator
+# scratch and logs ignored
+experiments/flow/build/**/*.dcp
+experiments/flow/build/sim/
+experiments/flow/build/logs/
+experiments/**/sim/work/

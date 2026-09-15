@@ -13,7 +13,7 @@ reproduce three things exactly, none of which is plain 2D convolution:
 
 The clamp is modelled but, for this parameterisation, unreachable. DROP is
 $clog2(K**2), so the worst case is 255 * 128 * K**2 >> $clog2(K**2), which is at
-most 255 * 128 = 32640 - inside the 16-bit signed range for every odd K. An
+most 255 * 128 = 32640 - inside the 16-bit signed range for every K. An
 8-bit pixel path through this pipeline cannot saturate; the clamp only earns its
 keep if PIXEL_WIDTH or FEATURE_WIDTH changes.
 
@@ -53,9 +53,9 @@ def convolve(image: np.ndarray, kernel: Kernel, *, relu: bool = False) -> np.nda
     already rounded and saturated to FEATURE_WIDTH bits.
 
     `relu` appends the activation that would follow this layer in a CNN. It is
-    OFF by default and is NOT part of the hardware contract - conv_system has no
-    activation stage, so a rectified frame is a layer-level result, not
-    something the RTL can be checked against. See `apply_relu`.
+    OFF by default and is NOT part of the file-testbench contract - conv_image_tb
+    builds conv_system without its optional relu_unit, so a rectified frame is a
+    layer-level result, not something that path checks. See `apply_relu`.
     """
     mac = _valid_correlate(image, np.array(kernel.rows, dtype=np.int64))
     features = _round_saturate(mac, drop_bits(kernel.size))

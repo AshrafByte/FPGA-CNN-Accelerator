@@ -1,4 +1,4 @@
-"""Comparison charts for the report (all numbers from ip/vivado/RESULTS.md and fpga/reports/default)."""
+"""Comparison charts for the report (numbers from the Vivado exploration runs and fpga/reports/default)."""
 import re
 import sys
 from pathlib import Path

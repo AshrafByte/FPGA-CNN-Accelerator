@@ -1,0 +1,9 @@
+lut=130
+lutram=77
+ff=2803
+dsp=25
+bram=0
+wns=2.922
+tns=0.000
+whs=0.075
+fmax_mhz=300.5

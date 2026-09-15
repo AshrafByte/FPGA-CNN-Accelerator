@@ -6,7 +6,7 @@
   subtitle: [Architecture, Verification and FPGA Implementation],
   short-title: [ARA Silicon · Edge-AI CNN Convolution Accelerator],
   team-name: [ARA Silicon],
-  university: none,
+  university: [Ain Shams University],
   supervisor: none,
   members: (
     (name: "Ahmed Ashraf", detail: "Computer Engineering, Graduate",       email: "ahmed.ashraf2827@gmail.com"),
@@ -27,7 +27,7 @@
     stream back to back without a reset: an `o_frame_done` pulse marks the last feature of each
     frame and re-arms the pipeline for the next. The design
     was verified bit-exactly against a Python golden model in QuestaSim across thousands of frames,
-    kernel sizes from 3×3 to 11×11 and up to 16 parallel kernels. For the 3×3, 32×32 competition build
+    kernel sizes from 2×2 to 11×11 and up to 16 parallel kernels. For the 3×3, 32×32 competition build
     at 250 MHz it uses #fpga.luts LUTs, #fpga.ffs FFs, #fpga.dsps DSPs and no BRAM, reaches
     #perf.fmax MHz and a Figure of Merit of #fix(fom, digits: 5) (bars + Sobel-X) and
     #fix(fom-checker, digits: 5) (checkerboard + Sobel-Y). A PYNQ-Z2 overlay demonstrates the
@@ -69,16 +69,16 @@ the competition configuration (N = 3, 32×32 input, one kernel, ReLU off) implem
     [Input image size], [≥ 32 × 32, single channel], [#design.image-w × #design.image-h (parameter `INPUT_SIZE`; 128 × 128 verified)], [pixels], [Output #derived.out-w × #derived.out-h, valid padding],
     [Input precision], [Unsigned fixed-point], [#design.input-bits;-bit unsigned (UQ8.0)], [bits], [Justified in @sec-input-precision],
     [Kernel precision], [8-bit signed], [#design.kernel-bits;-bit signed integer, programmable], [bits], [N × N, `WINDOW_SIZE`],
-    [Architecture type], [Multiplier array + pipelined adder tree], [#design.architecture], [—], [MAC chosen from N and K, @sec-mac-select],
+    [Architecture type], [—], [#design.architecture], [—], [MAC chosen from N and K (@sec-mac-select): single cascade, row chains, or multiplier array + pipelined adder tree],
     [Multipliers / MACs], [—], [3 architectures, N² DSP48E1 each: \ (1) *Single cascade:* one PCOUT→PCIN chain \ (2) *Row chains:* N-slice chain per row + pipelined adder tree \ (3) *Multiplier array* + pipelined adder tree], [count], [Chosen from N and K (@sec-mac-select); build uses (1): 9 DSP48E1],
-    [Pipeline stages], [12 (multiplier array + pipelined adder tree)], [#design.pipeline-stages], [stages], [Pixel path; @tab-latency],
+    [Pipeline stages], [—], [#design.pipeline-stages], [stages], [Pixel path, single cascade; multiplier array + tree: 12; @tab-latency],
     [Latency], [—], [#val(perf.latency) (frame warm-up); #design.pipeline-stages per pixel], [cycles], [First pixel → first feature, @sec-perf],
     [Throughput], [1], [#perf.throughput (sustained)], [px / cycle], [One output pixel per clock cycle],
     [FPGA utilization], [—], [LUT #fpga.luts, FF #fpga.ffs \ DSP #fpga.dsps, BRAM #fpga.brams], [—], [#fpga.device],
-    [Maximum frequency], [250 MHz], [#perf.fmax (WNS +#fix(perf.wns) ns at 4.000 ns)], [MHz], [Timing met],
+    [Maximum frequency], [—], [#perf.fmax (WNS +#fix(perf.wns) ns at 4.000 ns)], [MHz], [Design target 250 MHz; timing met],
     [Power estimate], [—], [#fix(perf.power-total-checker, digits: 4)], [W], [Checkerboard + Sobel-Y benchmark, routed, SAIF],
     [Verification status], [Matches golden model], [#verif.status], [—], [0 mismatches, @sec-verif],
-    [FOM], [Higher is better], [*#fix(fom-checker, digits: 5)*], [px/(cycle·W)], [@eq-fom; checkerboard + Sobel-Y benchmark],
+    [FOM], [Higher is better], [*#fix(fom-checker, digits: 5)*], [px / (cycle · W · pt)], [@eq-fom; checkerboard + Sobel-Y benchmark],
   ),
 ) <tab-summary>
 
@@ -88,7 +88,7 @@ the competition configuration (N = 3, 32×32 input, one kernel, ReLU off) implem
 
 == Background and Motivation
 
-Convolution layers account for most of the arithmetic of a CNN. On an edge smart device the
+Convolution layers account for most of the arithmetic of a CNN [2]. On an edge smart device the
 computation has to meet a latency target inside a tight power and cost budget, which rules out
 frame-buffered processors that copy whole images between memory and compute. An FPGA can instead
 process pixels as they arrive from a sensor, keep only the rows a kernel needs, and map every
@@ -119,9 +119,9 @@ distinct MAC and datapath variants before arriving at the final design (@sec-tra
   feature of each frame carries an `o_frame_done` pulse, and a new kernel can be loaded between
   frames, for zero extra LUTs in the frame-end mark (@sec-fsm).
 - *Round-half-up* 16-bit output whose saturation logic is built only when it is reachable (@sec-fixed).
-- A two-level verification flow: a self-checking SystemVerilog testbench swept over 168
-  configurations, and a Python golden model driving the RTL in QuestaSim through a regression of
-  53 cases plus image-level edge-detection demos (@sec-verif).
+- A two-level verification flow: a self-checking SystemVerilog testbench swept over 40
+  configurations (11 tests each), and a Python golden model driving the RTL in QuestaSim through a
+  regression of 62 cases (87 frames, 307 328 features) plus image-level edge-detection demos (@sec-verif).
 - A scripted Vivado flow (synthesis, implementation, SAIF power, FoM) and a PYNQ-Z2 board overlay
   with a Python driver (@sec-bonus).
 - *All optional bonus features* of the competition: ReLU activation, one output pixel per clock
@@ -389,7 +389,7 @@ parameterized in the kernel size N and replicated for every kernel lane. None of
 
 == DSP48E1 Slice Configuration
 
-All three MAC architectures are built from the same DSP48E1 slice. @fig-ug369 shows the full
+All three MAC architectures are built from the same DSP48E1 slice [3]. @fig-ug369 shows the full
 primitive and @fig-dsp the configuration used in every MAC:
 the pixel, zero-extended to 9 bits, enters port A and the weight port B; the product is registered
 in MREG and added in the post-adder to either nothing (first slice), the carry-in port C or the
@@ -436,9 +436,11 @@ out of DSPs, which makes it the choice for large kernels. Latency: 3 + ⌈log₂
 == Automatic MAC Selection <sec-mac-select>
 
 Every MAC needs N² × K DSPs, but the three differ in LUTs, in flip-flops and in how they fail. The
-selection is a pure elaboration-time function of N and K (@fig-macsel, @tab-macsel). The limits sit
-one step inside the measured failure points (@sec-scaling) as margin: row chains closed 250 MHz up to
-9 × 9, the single chain up to 7 × 7, and the device has 220 DSPs. `MAC_ARCH` can force a choice.
+selection is a pure elaboration-time function of N and K (@fig-macsel, @tab-macsel). The row-chain and DSP
+limits sit one step inside the measured failure points (@sec-scaling) as margin: row chains closed
+250 MHz up to 9 × 9 and the device has 220 DSPs. The single-cascade limit is set by FoM, not timing:
+from 5 × 5 its skew flip-flops cost about 20 mW and it loses to the row chains. `MAC_ARCH` can force a choice, and the three limits are parameters: the 160 MHz sweep of
+@sec-sweep shows where they move for a slower clock.
 
 #figure(
   caption: [MAC architecture selected per kernel size N and kernel count K],
@@ -465,7 +467,7 @@ register raised the slack from +0.386 ns to +0.757 ns at no LUT cost.
 (@fig-roundsat). Stage A splits the sum into the truncated value `x[19:4]` and the guard bit `x[3]`;
 stage B adds the guard bit (round half up, @sec-fixed). The positive clamp is generated only when
 the maximum reachable sum could overflow after rounding, which @sec-overflow shows never happens for
-8-bit data, so no overflow or clamp logic is built (2 LUTs).
+8-bit data, so no overflow or clamp logic is built (3 LUTs).
 
 #fig("figures/diagrams/round_saturate.png", [Round and saturate: stage A registers the truncated value and the guard bit, stage B the rounded 16-bit feature. The dashed clamp is elaborated only when reachable.]) <fig-roundsat>
 
@@ -475,7 +477,7 @@ With `ENABLE_RELU = 1` each lane inserts `relu_unit`, one register stage that ou
 sign bit is set. Placing it after rounding is exact because rounding is monotonic and maps 0 to 0,
 and the sign decision is made on 16 instead of 20 bits. Without ReLU the stage is a wire.
 
-== Output FIFO and One Pixel per Cycle
+== Output FIFO and One Pixel per Cycle <sec-fifo>
 
 The MAC output is invalid for N − 1 cycles at every row edge. `output_fifo` stores
 PREFILL = (W − N)(N − 1) = 58 features before it starts reading, exactly one frame's worth of
@@ -584,10 +586,62 @@ The accumulator is wider than the 16-bit output by DROP = W#sub[acc] − 16 = �
 $ y = floor((x + 2^("DROP" - 1)) / 2^"DROP") = x["W"_"acc"-1 : "DROP"] + x["DROP" - 1] $ <eq-round>
 
 i.e. the truncated value plus the first discarded (guard) bit — one incrementer, no sticky logic.
-Ties go toward +∞ (4.5 → 5 and −4.5 → −4). Plain truncation would bias every output by −0.5 LSB;
-round-half-to-even needs the sticky OR of the discarded bits and was replaced after we measured it
-in an earlier build. This fixed scale is a built-in normalization: a 3 × 3 kernel with weights summing
-to 16 (Gaussian, sharpen, identity with centre 16) has unity gain.
+Ties go toward +∞ (4.5 → 5 and −4.5 → −4). This fixed scale is a built-in normalization: a 3 × 3
+kernel with weights summing to 16 (Gaussian, sharpen, identity with centre 16) has unity gain.
+
+== Round Half Up versus Round Half to Even <sec-rounding-compare>
+
+Three ways of removing the DROP low bits were compared. *Truncation* keeps `x[W-1:DROP]`.
+*Round half up* adds the guard bit. *Round half to even* (convergent rounding, the default of
+IEEE 754 and of our earlier design) also increments above one half, but at an exact tie only when the
+kept value is odd; that needs the guard bit, the sticky OR of the remaining DROP − 1 bits and the
+kept LSB. @tab-rounding and @fig-rounding give the error of each method, computed in MATLAB
+(`docs/report/scripts/rounding_analysis.m`) over every accumulator value a 3 × 3 window of 8-bit data
+can reach and over real convolutions of three images with eight preset kernels.
+
+#figure(
+  caption: [Rounding error for DROP = 4, in output LSBs, over every reachable 3 × 3 sum (−293 760 to 291 465)],
+  table(
+    columns: (1.4fr, 1fr, 1fr, 1fr),
+    align: (left, right, right, right),
+    table.header[Method][Bias][RMS error][Max. \|error\|],
+    [Truncation], [−0.469], [0.550], [0.938],
+    [*Round half up* (`conv_system`)], [*+0.031*], [*0.290*], [*0.500*],
+    [Round half to even], [0.000], [0.290], [0.500],
+  ),
+) <tab-rounding>
+
+#fig("figures/charts/rounding_error.png", [Rounding methods compared (MATLAB): (a) transfer near zero, where the two rounding methods differ only at the ties +8, −24 and +40 (ties at −8, +24 and −40 agree); (b) bias, RMS and maximum error over every reachable 3 × 3 sum; (c) bias on real convolutions (inspection, random and smooth 128 × 128 images) with the share of exact ties per kernel.]) <fig-rounding>
+
+The two rounding methods are identical except on exact ties, which are 1 / 16 of all values: they
+have the same RMS error (0.290 LSB) and the same worst case (0.5 LSB). Round half up moves every tie
+the same way and so adds a bias of exactly 1/32 LSB; on real convolutions it stayed below 0.038 LSB,
+ties made up 0–7.7 % of the outputs, and at most 3.8 % of the output pixels differed between the
+two methods — each by one LSB, i.e. 1/65 536 of the 16-bit range. Kernels whose weights are all
+multiples of 16 (sharpen, emboss) never round at all. Truncation is not an option: its −0.47 LSB bias
+shifts every feature.
+
+The hardware cost was measured by replacing only `round_saturate` in the complete accelerator
+(`experiments/round_half_even`, `experiments/round_always_clamp`), with the same flow and benchmarks
+as @tab-fom:
+
+#figure(
+  caption: [Output-stage variants in the complete accelerator (3 × 3, 32 × 32, one kernel, 250 MHz, routed)],
+  table(
+    columns: (1.7fr, 0.8fr, 1.1fr, 1.1fr, 1.2fr),
+    align: (left, right, right, right, right),
+    table.header[Output stage][LUT (stage)][WNS / Fmax][Power bars / checker][FoM bars / checker],
+    [*Round half up, clamp only if reachable* (final)], [*78 (3)*], [*+0.728 ns / 305.6 MHz*], [*119.9 / 110.6 mW*], [*0.01579 / 0.01712*],
+    [Round half to even, both clamps (earlier design)], [93 (20)], [+0.414 ns / 278.9 MHz], [120.6 / 111.1 mW], [0.01527 / 0.01658],
+    [Round half up, clamp always built], [99 (20)], [+0.520 ns / 287.4 MHz], [128.7 / 119.3 mW], [0.01416 / 0.01527],
+  ),
+) <tab-round-hw>
+
+*Why round half up.* It has the same accuracy as round half to even apart from a 1/32 LSB bias that no
+16-bit feature map can show, and it is a single guard-bit incrementer: 3 LUTs instead of 20, a
+0.31 ns shorter critical path and 3.4 % (bars) and 3.3 % (checker) higher FoM. It is also the requantization
+rounding of integer CNN inference libraries (add half, then shift) [6], so the features match a software
+reference computed the same way.
 
 == Overflow and Saturation <sec-overflow>
 
@@ -597,11 +651,24 @@ $ x_max = N^2 dot (2^8 - 1) dot (2^7 - 1) = 9 dot 255 dot 127 = 291465, $
 
 which rounds to (291465 + 8) ≫ 4 = 18217 < 32767. The most negative sum, 9 · 255 · (−128) = −293760,
 gives −18360 > −32768. In general DROP = ⌈log₂N²⌉ ≥ log₂N², so |y| ≤ 255 · 128 = 32640 for *every*
-N: the 16-bit output can never overflow with 8-bit data. `round_saturate` receives
-`IN_MAX = ACCUM_MAX` and builds the clamp (a flag in stage A and a mux in stage B) only when
-$(x_max + 2^("DROP"-1)) ≫ "DROP"$ exceeds the output range; it is generated if `PIXEL_WIDTH` or
-`FEATURE_WIDTH` is changed. An exhaustive unit test drove all 2#super[20] inputs of a 20-to-16-bit
-instance, where the clamp is reachable, against a definition-level model.
+N: the 16-bit output can never overflow with 8-bit data (@fig-saturation).
+
+#fig("figures/charts/saturation_headroom.png", [Largest and smallest reachable output for kernel sizes 2–17 with 8-bit pixels and weights. With DROP = ⌈log₂N²⌉ (conv_system) the output stays inside the 16-bit range for every N; with a fixed DROP of 4 it overflows from N = 5, and saturation would be required.], width: 80%) <fig-saturation>
+
+*Why saturation is not needed here.* The scale grows with the window: every extra guard bit of the
+accumulator is dropped again, so the output range is set by the pixel and weight widths alone.
+Building the clamp anyway is not free even though it never acts: the always-clamp variant of
+@tab-round-hw costs 21 LUTs, 0.21 ns of slack and 8.6 mW of dynamic power (8.8 mW in total), and lowers the FoM by
+10.4 % (bars + Sobel-X) and 10.8 % (checker + Sobel-Y).
+
+*When saturation is needed.* The clamp becomes necessary as soon as the scale no longer tracks the
+word growth: a fixed shift (DROP = 4 overflows from N = 5, @fig-saturation), wider pixels or weights
+with the same 16-bit output, a narrower `FEATURE_WIDTH`, a bias or residual added to the sum, or a
+larger normalization gain. `round_saturate` therefore receives `IN_MAX = ACCUM_MAX` and builds the
+clamp (a flag in stage A and a mux in stage B) only when $(x_max + 2^("DROP"-1)) ≫ "DROP"$ exceeds the
+output range, so any such parameter change adds it automatically. An exhaustive unit test drove all
+2#super[20] inputs of a 20-to-16-bit instance, where the clamp is reachable, against a
+definition-level model.
 
 == Input Precision Justification <sec-input-precision>
 
@@ -615,8 +682,8 @@ We chose 8-bit unsigned (UQ8.0) pixels:
 - *Word growth.* Each extra input bit widens every product, the accumulator and the skew
   registers; 8 bits keeps the 3 × 3 accumulator at 20 bits and the output provably inside 16 bits
   (@sec-overflow).
-- *Fewer bits* (e.g. 6) would save little: the multipliers are DSPs either way and the LUT count
-  of the datapath is already 2, so only flip-flops (not charged by the FoM) would shrink, at a
+- *Fewer bits* (e.g. 6) would save little: the multipliers are DSPs either way and the MAC
+  already uses only 2 LUTs (8 from the window to the rounded feature), so only flip-flops (not charged by the FoM) would shrink, at a
   visible loss of contrast on natural images.
 
 `PIXEL_WIDTH` remains a parameter; the widths of every stage and the clamp decision follow it.
@@ -778,8 +845,8 @@ counters, including `FRAME_COUNT`, which counts `o_frame_done` pulses.
   caption: [Hardware regression cases (`sw/tests/regression`, QuestaSim, Python golden model)],
   table(
     columns: (1.25fr, auto, 2fr),
-    table.header[Case][Frames][Purpose],
-    [Every preset on every pattern], [5], [All 12 preset kernels as parallel lanes on ramp, checker, circle, bars and noise],
+    table.header[Case][Cases][Purpose],
+    [Every preset on every pattern], [6], [All 12 preset kernels as parallel lanes on ramp, checker, circle, bars, noise and edges],
     [Frame size], [10], [4×4 (smallest, FIFO depth 2), 16/17 and 32/33 (counter width steps), odd sizes, 64×64],
     [Every tap position], [2], [Nine one-hot kernels at +16 and −128: any tap-order or row-swap bug shifts a lane],
     [Extreme pixels and weights], [4], [Black, white, pixel checker and noise against all +127, all −128, alternating: largest positive and negative sums, sign flips every pixel],
@@ -787,8 +854,8 @@ counters, including `FRAME_COUNT`, which counts `o_frame_done` pulses.
     [Lane count], [9], [`NUM_KERNELS` 1–16 across the select-bus width steps],
     [Window size], [2], [5 × 5 and 7 × 7 (row-chain MAC)],
     [Randomized], [20], [Random size, image, window (3 or 5) and 1–6 random kernels],
-    [Streams without reset], [8], [Several frames in one simulation after one reset, each frame checked on its own: the five patterns back to back and 5 cycles apart, 5 × 5 and 7 × 7 row chains, four random streams (2–4 frames, gap 0, 1 or 17 cycles)],
-    [*Total*], [*61*], [#val(verif.cases) features compared, #verif.mismatches mismatches],
+    [Streams without reset], [8], [Several frames in one simulation after one reset, each frame checked on its own: the six patterns back to back and 5 cycles apart, 5 × 5 and 7 × 7 row chains, four random streams (3–4 frames, gap 0, 1 or 17 cycles)],
+    [*Total*], [*62*], [87 frames, #val(verif.cases) features compared, #verif.mismatches mismatches],
   ),
 ) <tab-tests>
 
@@ -801,7 +868,7 @@ counters, including `FRAME_COUNT`, which counts `o_frame_done` pulses.
     [`conv_system_tb`, per architecture], [3×3 K=1 (chain); 5×5 K=2 ReLU stall (rows); 11×11 K=1 (tree)], [3 / 3],
     [`conv_system_tb`, component architectures], [Tree: 84 + 40 stalled; row chains: 168; single chain: 40], [all pass],
     [MAC selection], [23 (N, K) elaborations, printed `MAC_SEL` checked against @tab-macsel], [23 / 23],
-    [Golden-model unit tests], [Model, rounding ties, 2#super[20] rounding sweep, single- and multi-frame file contract, CLI, architecture rules], [94 / 94],
+    [Golden-model unit tests], [Model, rounding ties, 2#super[20] rounding sweep, single- and multi-frame file contract, CLI, architecture rules, patterns], [100 / 100],
     [Output FIFO unit test], [Two frames after one reset: prefill, order, `o_last` on the last entry, re-arm], [pass],
     [Line buffer unit test], [Three frames with random stalls, no reset: `row_done`, `rows_ready` refill, `o_frame_end`, row taps; 8 × 8 / 3 rows and 13 × 13 / 5 rows], [pass],
     [Kernel register unit test], [Load in bursts, reload without reset, over-long load, hold, reset], [7 / 7],
@@ -814,7 +881,7 @@ counters, including `FRAME_COUNT`, which counts `o_frame_done` pulses.
 
 == Results: Hardware versus Golden Model
 
-#key-result[All 61 regression cases (8 of them multi-frame streams without reset), all 40 sweep
+#key-result[All 62 regression cases (8 of them multi-frame streams without reset), all 40 sweep
 configurations with their frame-protocol tests and every image run matched the golden model bit for
 bit: #verif.mismatches mismatching output features, and `o_frame_done` on the last feature of every
 frame.]
@@ -829,11 +896,51 @@ taken on the raw signed features, so a clamp cannot hide a sign error.
 
 #fig("figures/verif/cli_circle.png", [Verification software output: 32 × 32 circle, five kernels (Sobel-X, Sobel-Y, Laplacian, Gaussian, sharpen) as parallel lanes. Columns: input, hardware output with verdict, golden-model output.], width: 58%) <fig-cli-circle>
 
+@fig-cli-edges-12 runs all twelve preset kernels at once, as lanes 0 to 11 of one 128 × 128 frame of
+the `edges` pattern, whose edges have every orientation, length and contrast: 190 512 features,
+all bit-exact. Unlike the three kernels of @fig-cli-128, it shows how each preset responds to the
+same edges — the gradients (Sobel, Prewitt, Scharr) by direction, the Laplacians on every
+boundary, the blurs as smoothed copies, and sharpen and emboss as edge-enhanced relief.
+
+#figure(
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 10pt,
+    image("figures/verif/cli_edges_12_128_a.png", width: 100%),
+    image("figures/verif/cli_edges_12_128_b.png", width: 100%),
+  ),
+  kind: image,
+  caption: [All twelve preset kernels as parallel lanes of one 128 × 128 `edges` frame: lanes 0–5 (left: identity, Sobel-X, Sobel-Y, Prewitt-X, Prewitt-Y, Laplacian) and 6–11 (right: Laplacian-8, Gaussian, box blur, sharpen, emboss, Scharr-X). Columns: input, hardware output in QuestaSim with its verdict, golden-model output; every lane MATCH.],
+) <fig-cli-edges-12>
+
 #fig("figures/verif/cli_inspection.png", [128 × 128 inspection image through Sobel-X, Sobel-Y and Laplacian: RTL in QuestaSim (middle) and golden model (right), all 47 628 features bit-exact. The crack and void stand out in every edge map.], width: 82%) <fig-cli-inspection>
 
-#fig("figures/verif/cli_checker_relu.png", [Checkerboard through Sobel-X and Laplacian with ReLU applied to the displayed output; verdicts on raw features.], width: 56%) <fig-cli-relu>
+The same three kernels were run on four more 128 × 128 images (@fig-cli-128): (a) a circle, whose
+edge passes through every orientation; (b) a checkerboard with horizontal and vertical edges and
+corners; (c) vertical bars, which Sobel-X detects and Sobel-Y suppresses completely; and (d) an
+image with no regular structure at all, a mosaic of irregular cells overlaid with random ellipses,
+polygons and strokes, so edges of every direction, length, curvature and contrast appear side by
+side (the `edges` pattern of `conv_lab`, `--pattern edges`). Each run produces 47 628 features and all
+of them match the golden model.
 
-#fig("figures/verif/regression_presets.png", [Hardware regression image of the case "every preset on the checker pattern": twelve preset kernels run as parallel lanes of one frame; the first four lanes are shown, every lane MATCH (all 61 cases in `figures/verif/regression_summary.txt`).], width: 60%) <fig-regression>
+#let sub(path, label) = stack(spacing: 4pt, image(path, width: 100%), align(center, text(size: 8pt)[#label]))
+#figure(
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 10pt,
+    row-gutter: 10pt,
+    sub("figures/verif/cli_circle_128.png", [(a) circle]),
+    sub("figures/verif/cli_checker_128.png", [(b) checkerboard, 16-pixel tiles]),
+    sub("figures/verif/cli_bars_128.png", [(c) vertical bars]),
+    sub("figures/verif/cli_edges_128.png", [(d) edges pattern]),
+  ),
+  kind: image,
+  caption: [128 × 128 images through Sobel-X, Sobel-Y and Laplacian (rows of each panel). Columns: input, hardware output in QuestaSim with its verdict, golden-model output; all four runs are bit-exact. Sobel-Y is zero everywhere on the vertical bars.],
+) <fig-cli-128>
+
+#fig("figures/verif/cli_checker_relu.png", [128 × 128 checkerboard through Sobel-X and Laplacian with ReLU applied to the displayed output; verdicts on raw features, both lanes bit-exact.], width: 56%) <fig-cli-relu>
+
+#fig("figures/verif/regression_presets.png", [Hardware regression image of the case "every preset on the checker pattern": twelve preset kernels run as parallel lanes of one frame; the first four lanes are shown, every lane MATCH (all 62 cases, 87 frames, in `figures/verif/regression_summary.txt`).], width: 60%) <fig-regression>
 
 @tab-samples lists expected and hardware values side by side. The first six rows are the largest
 positive and negative feature of each kernel on the inspection image, read from the golden and
@@ -920,6 +1027,12 @@ from the window to the rounded feature uses 8 LUTs. The 521 flip-flops are domin
 (75), the kernel register (76) and the cascade skew registers (226); the frame protocol adds the
 32-bit one-hot row ring and the 13-stage frame-end delay line. None of them enter the FoM.
 
+#fig("figures/vivado/utilization_hier.png", [Vivado, post-route utilization by module (`report_utilization`, Hierarchy view): the single cascade uses 2 LUTs and all 9 DSPs, and the output FIFO holds 24 of the 41 memory LUTs.]) <fig-vivado-util>
+
+#fig("figures/vivado/dsp_schematic.png", [Vivado schematic of the routed `mac_single_chain`: the nine DSP48E1 slices linked in one chain.]) <fig-vivado-dsp>
+
+#fig("figures/vivado/device_view.png", [Vivado Device view of the routed build. Left: the whole xc7z020; the design occupies a small area of clock region X0Y0 next to the DSP column. Right: that area enlarged, modules highlighted by colour — red: MAC (DSP cascade and skew registers), blue: line buffer, green: window generator, magenta: output FIFO, yellow: kernel register, cyan: round and saturate.], width: 85%) <fig-vivado-device>
+
 == Timing
 
 #figure(
@@ -937,6 +1050,8 @@ from the window to the rounded feature uses 8 LUTs. The 521 flip-flops are domin
   ),
 ) <tab-timing>
 
+#fig("figures/vivado/timing_summary.png", [Vivado, Design Timing Summary of the routed build: all setup, hold and pulse-width constraints met.]) <fig-vivado-timing>
+
 $ f_"max" = 1 / (T_"clk" - "WNS") = 1 / (4.000 - 0.728) " ns" = 305.6 " MHz" $ <eq-fmax>
 
 *Critical path.* The worst path is not in the arithmetic: it runs inside `output_fifo` from the read
@@ -946,13 +1061,20 @@ cascade (0.48 ns) and every skew register drives a slice input directly. An earl
 of the cascade closed 300 MHz with +0.627 ns slack (369 MHz), so Fmax is limited by fabric control
 routing, not by the datapath.
 
+#fig("figures/vivado/worst_path.png", [Vivado, worst setup path: output FIFO read pointer to the output data clock enable, 3.007 ns with 2 logic levels and 76.6 % routing delay.]) <fig-vivado-path>
+
 == Power <sec-power>
 
-Vivado's vectorless estimate assumes a 12.5 % toggle rate on every net and reports low confidence;
+Vivado's [4] vectorless estimate assumes a 12.5 % toggle rate on every net and reports low confidence;
 for image data it is pessimistic. `fpga/sim/conv_system_power_tb.sv` therefore streams one full
 32 × 32 frame at one pixel per cycle with no stalls (the sustained worst case) while xsim records
 the switching activity of the whole design at 250 MHz; the SAIF is annotated on the routed
-checkpoint. Two workloads are reported.
+checkpoint. Two workloads are reported. @fig-xsim-power and @fig-xsim-rowedge show that simulation in Vivado
+xsim, the run whose switching activity is annotated.
+
+#fig("figures/waves/xsim_power_frame.png", [Vivado xsim, power benchmark simulation (bars + Sobel-X, 250 MHz): after the kernel load, 1024 pixels stream at one per cycle, `window_valid` drops at every row edge, and the 900 features leave with `o_valid` high for 900 consecutive cycles; the last one carries `o_frame_done`.]) <fig-xsim-power>
+
+#fig("figures/waves/xsim_power_rowedge.png", [Vivado xsim, the same simulation at a row edge: `window_valid` and the MAC and rounding valids drop for N − 1 = 2 pixels while the FIFO keeps `o_valid` high and one feature leaves per cycle.]) <fig-xsim-rowedge>
 
 #figure(
   caption: [Total on-chip power of the routed competition build (Vivado `report_power`)],
@@ -965,6 +1087,8 @@ checkpoint. Two workloads are reported.
     [Vivado vectorless (reference)], [#fix(perf.power-vectorless * 1000) mW], [54.699 mW], [105.161 mW], [Low],
   ),
 ) <tab-power>
+
+#fig("figures/vivado/power.PNG", [Vivado power summary of the routed build with the checkerboard + Sobel-Y SAIF annotated: 110.615 mW total, 6.163 mW dynamic (82 % of it clock network) and 104.452 mW device static, medium confidence.], width: 85%) <fig-vivado-power>
 
 #fig("figures/charts/power_breakdown.png", [Power breakdown of the routed design on both workloads (mW).]) <fig-power>
 
@@ -1032,14 +1156,14 @@ $ "FoM" = "Throughput" / ("Power" times ("LUTs" + 50 times "DSPs" + 100 times "B
 gave 71 LUTs, 474 FFs, +0.794 ns and FoM 0.01596 / 0.01730. Streaming frames without a reset adds
 7 LUTs (+1.3 % weighted area) and −1.1 % FoM: the one-hot row ring and the frame-end delay line are
 flip-flops only, and the FIFO's frame re-arm costs 6 LUTs. A first version that merged the re-arm into
-the pointer logic cost 22 LUTs and slack; @sec-datapath describes the cheaper structure.
+the pointer logic raised the design to 93 LUTs and cost slack; @sec-fifo describes the cheaper structure.
 
 == Operating Frequency and Energy per Pixel
 
 Because throughput is counted per *cycle*, the FoM numerator does not change with the clock rate
 while dynamic power grows with it. On a row-chain build implemented at three constraints with a SAIF
 recorded at each period, the FoM rose from 0.01284 at 250 MHz to 0.01424 at 150 MHz, yet energy per
-output pixel moved the other way, from 0.79 nJ to 0.52 nJ, because the static floor is shared by
+output pixel moved the other way, rising from 0.52 nJ at 250 MHz to 0.79 nJ at 150 MHz, because the static floor is shared by
 more pixels per second (@fig-freq). We report 250 MHz: it is the best real performance, the lowest
 energy per pixel and the honest basis for Fmax.
 
@@ -1072,7 +1196,7 @@ as parallel lanes of one frame (@fig-regression), so twelve kernels cost one fra
 
 == Board Demonstration (PYNQ-Z2) <sec-board>
 
-The overlay wraps `conv_system` in an AXI4-Lite peripheral, `conv_axi_lite`, attached to the Zynq
+The PYNQ [7] overlay wraps `conv_system` in an AXI4-Lite peripheral, `conv_axi_lite`, attached to the Zynq
 processing system (@fig-board). The ARM core writes the kernel and the pixels as register writes
 (four pixels per write); the wrapper feeds them to the accelerator one per clock cycle and stores every
 output feature in a block-RAM result memory that Python reads back. The accelerator is reset once
@@ -1083,6 +1207,13 @@ weight, pixel, feature and frame counts and the in-fabric latency; four LEDs sho
 streaming, frame done and a heartbeat.
 
 #fig("figures/diagrams/board_demo.png", [Board demonstration on the PYNQ-Z2. The Python driver on the ARM cores reaches `conv_axi_lite` through AXI GP0 and the interconnect; the host PC runs the notebook over Ethernet. After the overlay is loaded, steps 2 to 6 repeat for every frame without a reset (the kernel is rewritten only when it changes).]) <fig-board>
+
+Before the board, the wrapper is simulated in Vivado xsim with `conv_axi_lite_tb`, which drives the
+AXI4-Lite bus exactly like the PYNQ driver (@fig-xsim-board, @fig-xsim-axi).
+
+#fig("figures/waves/xsim_board_frames.png", [Vivado xsim, `conv_axi_lite_tb` (3 × 3, 32 × 32, one lane): the AXI master writes the kernel and the pixels, polls `STATUS` and reads back the 900 features of every frame. Five frames follow the first soft reset without a reset, then a second soft reset and a sixth frame; `STATUS[2]`, `FRAME_COUNT` and the LEDs follow every `o_frame_done`, and all 5400 features match the model.]) <fig-xsim-board>
+
+#fig("figures/waves/xsim_board_axi.png", [Vivado xsim, AXI detail: (a) at the start of frame 2 a `PIXELS4` write (0x020) queues four pixels that enter `conv_system` on four consecutive cycles, and the first pixel clears the done flag; (b) the last feature of frame 2 carries `o_frame_done`, which sets `STATUS[2]` and LED LD2, and the next `STATUS` poll (0x010) reads 0x5.]) <fig-xsim-axi>
 
 #figure(
   caption: [Board demonstration build (`fpga/bitstream`, Vivado 2018.2)],
@@ -1118,7 +1249,7 @@ testbench before measurement.
 #fig("figures/charts/exploration_fom.png", [FoM of the explored approaches on the same natural-image SAIF at 250 MHz (resource points in brackets). Grey: baseline; red: rejected DSP-saving schemes; blue and navy: the DSP-cascade path.]) <fig-explore>
 
 #figure(
-  caption: [Design-space exploration, xc7z020, 250 MHz, K = 1, natural-image SAIF],
+  caption: [Design-space exploration, xc7z020, 250 MHz, K = 1, natural-image SAIF; earlier exploration RTL, before the final output stage and frame protocol],
   table(
     columns: (1.9fr, auto, auto, auto, auto, auto, auto),
     align: (left, right, right, right, right, right, right),
@@ -1140,10 +1271,10 @@ testbench before measurement.
 - *Fabric multipliers.* 933 LUTs and −1.48 ns: an 8 × 8 multiply costs about 87 LUTs, more than
   the 50 a DSP is worth.
 - *Time-multiplexing DSPs.* Sharing a slice across taps divides throughput by the sharing factor
-  while 81 % of the power is static and does not shrink, so every factor loses (×2: 0.88×, ×9: 0.40×).
+  while most of the power (81 % in that exploration build) is static and does not shrink, so every factor loses (×2: 0.88×, ×9: 0.40×).
 - *DSP multi-pumping* (three slices clocked three times per step). 3 DSPs and 412 points, but one
   output every three clock cycles: FoM 0.00503 per clock cycle.
-- *Double MAC* (two products per DSP, Lee et al.). Packing needs a shared operand; with one kernel
+- *Double MAC* (two products per DSP, Lee et al. [5]). Packing needs a shared operand; with one kernel
   that forces pixel pairs from adjacent windows, 2:1 multiplexers, correction adders and a
   serializer. It saved 4 DSPs (200 points) and paid 280 LUTs: 20 % worse.
 - *Clock-enable gating* of the DSP and tree registers is bit-exact and free in area, but under
@@ -1155,7 +1286,7 @@ testbench before measurement.
 #fig("figures/charts/architectures_3x3.png", [Fabric resources and FoM of the three MAC architectures at 3 × 3, 32 × 32, one kernel, 250 MHz (same flow and benchmarks).]) <fig-arch3>
 
 #figure(
-  caption: [The three MAC architectures, competition configuration, measured on the single-frame builds before the frame protocol was added (+7 LUTs for every architecture, @tab-fom)],
+  caption: [The three MAC architectures, competition configuration, measured on the single-frame builds before the frame protocol was added; the protocol adds 7–8 LUTs (@tab-fom)],
   table(
     columns: (1.4fr, 1fr, 1fr, 1fr),
     align: (left, right, right, right),
@@ -1173,13 +1304,95 @@ testbench before measurement.
 
 #fig("figures/charts/scaling_kernel_size.png", [Flip-flops (log scale) and slack of the three architectures versus kernel size, one kernel, 250 MHz; shaded bands show the automatic selection.]) <fig-scaling>
 
-The single cascade wins at 3 × 3 because its extra 243 flip-flops over the row chains are free in the
-FoM and cost no measurable power. At 5 × 5 its skew registers grow to 2742 FFs (+2250) and cost about
+The single cascade wins at 3 × 3 because its extra 144 flip-flops over the row chains are free in the
+FoM and cost no measurable power. At 5 × 5 its skew registers grow to 2742 FFs (+1939 over the row chains) and cost about
 20 mW, and at 9 × 9 the 26 775 FFs and the long DSP column miss timing by 1.38 ns; 13 × 13 does not
 fit the device. The row chains grow as N³ and close 250 MHz up to 9 × 9. The tree has no skew at all
 and keeps positive slack to 13 × 13, and only it can map multipliers into fabric once the 220 DSPs
 are exhausted (17 × 17 built with 200 DSPs plus fabric multipliers). This is exactly the selection
 rule of @tab-macsel.
+
+== Kernel-Size Sweep of the Three Architectures at 160 MHz <sec-sweep>
+
+To compare the architectures over the whole parameter range, each one was built as a standalone
+design (`experiments/conv_single_chain`, `conv_row_chain`, `conv_tree`: the final RTL with
+`MAC_ARCH` fixed) for every kernel size from 2 × 2 to 17 × 17, with one kernel, no ReLU, a 32 × 32
+frame and a 6.25 ns (160 MHz) clock, low enough for most sizes to close timing. Every build was
+synthesized, placed and routed, and its power was taken from a SAIF of one frame of a random image
+through a random kernel (`experiments/sweep/run_sweep.py`, charts from
+`docs/report/scripts/sweep_charts.m`). The system (`MAC_ARCH = 0`) elaborates exactly the module its
+rule selects, so at every N it is the build of that architecture.
+
+Builds that cannot fit the xc7z020 were not run: the single chain from N = 8, because one 64-slice
+PCOUT → PCIN cascade is longer than a 60-slice DSP column, and the row chains from N = 15, because
+225 DSPs exceed the 220 of the device and a cascade cannot use fabric multipliers. The tree is the
+only architecture that continues: from N = 15 it was built with `-max_dsp 200` and the remaining
+multipliers in LUTs. Larger sizes of an architecture were not continued once it could not fit
+(@fig-sweep-status). All 35 builds that were run completed.
+
+#fig("figures/charts/sweep_status.png", [Sweep builds per architecture and kernel size: built, not run because the design cannot fit, and not continued after that.]) <fig-sweep-status>
+
+#fig("figures/charts/sweep_resources.png", [Kernel-size sweep, resources (160 MHz, one kernel, 32 × 32): (a) LUTs, (b) flip-flops, (c) DSP slices, (d) LUT + 50 · DSP + 100 · BRAM. Circles: the system's automatic selection; shaded bands: its selection ranges for one kernel.]) <fig-sweep-resources>
+
+#fig("figures/charts/sweep_performance.png", [Kernel-size sweep, performance: (a) total and (b) dynamic power on a random image and kernel, (c) Fmax, (d) Figure of Merit.]) <fig-sweep-performance>
+
+#figure(
+  caption: [FoM (×10#super[−3]) per architecture and kernel size at 160 MHz; bold: best; the system column shows the architecture it selects and its FoM relative to the best],
+  table(
+    columns: (auto, 1fr, 1fr, 1fr, 1.4fr),
+    align: (center, right, right, right, left),
+    table.header[N][Single cascade][Row chains][Tree][System (selection, % of best)],
+    [2], [*32.3*], [30.5], [25.9], [single cascade, 100 %],
+    [3], [*15.3*], [14.2], [11.0], [single cascade, 100 %],
+    [4], [*8.40*], [7.75], [5.79], [row chains, 92.3 %],
+    [5], [5.06], [*5.11*], [3.47], [row chains, 100 %],
+    [6], [3.17], [*3.18*], [2.17], [row chains, 100 %],
+    [7], [1.89], [*2.11*], [1.49], [row chains, 100 %],
+    [8], [no fit], [*1.48*], [1.04], [row chains, 100 %],
+    [9], [—], [*1.05*], [0.757], [tree, 72.1 %],
+    [10], [—], [*0.641*], [0.566], [tree, 88.3 %],
+    [11], [—], [*0.483*], [0.407], [tree, 84.3 %],
+    [12], [—], [0.362], [*0.388*], [tree, 100 %],
+    [13], [—], [0.281], [*0.321*], [tree, 100 %],
+    [14], [—], [0.217], [*0.257*], [tree, 100 %],
+    [15], [—], [no fit], [*0.184*], [tree (200 DSP + LUT multipliers), 100 %],
+    [16], [—], [—], [*0.137*], [tree (200 DSP + LUT multipliers), 100 %],
+    [17], [—], [—], [*0.105*], [tree (200 DSP + LUT multipliers), 100 %; 156.3 MHz],
+  ),
+) <tab-sweep>
+
+#fig("figures/charts/sweep_fom_ratio.png", [FoM of each architecture relative to the best one at the same kernel size, with the system's selection (stars).], width: 85%) <fig-sweep-ratio>
+
+*Why three architectures.* All three use N² DSPs, one multiply per tap, so they differ only in
+where the N² additions happen and in how the taps of one window are aligned, and each is best in a
+different range (@tab-sweep):
+
+- *Single cascade* — every addition in a DSP post-adder. It has the fewest LUTs at every size
+  (52 at 2 × 2, 210 at 7 × 7) and the best FoM up to N = 4. The price is the tap alignment: tap e
+  waits e + 1 cycles, so the skew flip-flops grow as N⁴ (226 to 10 062 flip-flops in total from 2 × 2 to 7 × 7), their
+  toggling raises dynamic power from 18 to 94 mW, and the whole cascade must fit one 60-slice DSP
+  column, which ends the architecture at 7 × 7.
+- *Row chains* — N short cascades and a ⌈log₂N⌉-level fabric tree over the row sums. The skew only
+  grows as N³ (5 065 FFs at 14 × 14) and each cascade fits a column, so it scales to the 220 DSPs of
+  the device; the fabric tree costs 1.3–1.9× the LUTs of the single cascade. It is the best from
+  N = 5 to N = 11, but its Fmax settles at 162–171 MHz, so it has no timing margin at a faster clock,
+  and it cannot go beyond 196 DSPs (14 × 14).
+- *Multiplier array + tree* — all additions in a pipelined fabric tree and no skew at all. It needs
+  the most LUTs (3 601 at 14 × 14, 3.2× the row chains) but keeps the highest Fmax of the three from
+  N = 4 on (185–235 MHz up to 14 × 14) and is the only architecture that can place multipliers in
+  fabric once the DSPs run out (5 756 to 10 917 LUTs from 15 × 15 to 17 × 17). It becomes the best
+  FoM at N = 12, where its lower power outweighs its LUTs, and is the only option above 14 × 14.
+
+*Why these selection conditions.* The rule of @tab-macsel follows these ranges but was set for the
+250 MHz competition clock: the row-chain and DSP limits sit one step inside where they still closed
+timing at 4 ns, and the single-cascade limit is set by FoM, since its skew flip-flops cost power from 5 × 5. At 160 MHz both close further, so the FoM-optimal boundaries move up: the
+single cascade stays best to N = 4 (within 1 % of the row chains at N = 5 and 6), and the row chains
+stay best to N = 11. The system therefore reaches 100 % of the best FoM at 12 of the 16 sizes, 92.3 %
+at N = 4 and 72–88 % at N = 9–11, where it keeps the tree for its timing margin. Because
+`CHAIN_MAX_N` and `ROW_CHAIN_MAX_N` are parameters, a build for a 160 MHz clock would set them to 4
+and 11 and match the best architecture at every size; the DSP limit (N²·K ≤ 180 for row chains, the
+tree beyond) holds at any clock. At 17 × 17 even the tree misses 160 MHz by 0.146 ns: with 89 of its
+289 multipliers in LUTs, the fabric multiplier paths set the limit.
 
 == Other Trade-offs
 
@@ -1194,8 +1407,8 @@ rule of @tab-macsel.
     [Line buffer], [BRAM], [SRL / LUTRAM ring], [SRL: 22 LUTs, no BRAM (100 points), lowest power],
     [Output FIFO memory], [BRAM], [LUTRAM], [Chosen per build by FoM cost; LUTRAM at 32 × 32, BRAM wins at 64-pixel rows (+4 to +7 %)],
     [Pipelining], [Deep (high Fmax)], [Shallow (low latency)], [Register every DSP stage (AREG/BREG/MREG/PREG): throughput is per cycle, latency is only 16 stages],
-    [Rounding], [Truncation / half even], [Round half up], [Half up: unbiased except ties, one incrementer, no sticky logic],
-    [Overflow], [Always clamp], [Clamp when reachable], [Proven unreachable for 8-bit data; logic generated only if widths change],
+    [Rounding], [Truncation / half even], [Round half up], [Half up: same RMS error as half even, 1/32 LSB bias; 3 instead of 20 LUTs, +3.3–3.4 % FoM (@sec-rounding-compare)],
+    [Overflow], [Always clamp], [Clamp when reachable], [Proven unreachable for 8-bit data at every N; an unused clamp cost 21 LUTs and −10.4 % FoM; generated only if widths change],
     [Throughput], [Gapped output], [Prefill FIFO], [FIFO: one pixel per cycle (bonus) for 43 LUTs including the frame re-arm],
     [Frames], [Reset between frames], [Frame-end mark, no reset], [No reset: 7 LUTs (−1.1 % FoM) for continuous video; counters as a one-hot ring and a flip-flop delay line],
   ),
@@ -1203,7 +1416,7 @@ rule of @tab-macsel.
 
 == Discussion and Limitations
 
-- *Power is dominated by the device.* 87 % of the reported power is static and 63 % of it belongs to
+- *Power is dominated by the device.* 87 % of the reported power is static and 72 % of it (63 % of the total) belongs to
   the idle processing system, so beyond a point LUT savings raise the FoM mainly through the area
   term. A pure-PL power figure would be about 15 mW dynamic plus 29 mW PL leakage.
 - *SAIF matching.* With the arithmetic inside DSP slices only 7 % of nets match the SAIF by name;
@@ -1217,7 +1430,7 @@ rule of @tab-macsel.
   read.
 
 // =====================================================================
-= Conclusion and Future Work <sec-conclusion>
+= Conclusion <sec-conclusion>
 // =====================================================================
 
 ARA Silicon's accelerator meets every mandatory specification and implements all five bonus items.
@@ -1229,16 +1442,6 @@ output pixel per clock cycle and a Figure of Merit of #fix(fom, digits: 5) (bars
 a reset. Because the best structure depends on the
 kernel, the same RTL selects between the cascade, row chains and an adder tree from N and K, and a
 two-level verification flow proves every build bit-exact against an independent Python model.
-
-Future work:
-
-- Support multi-channel inputs and padding ("same" convolution) for complete CNN layers.
-- Fold the rounding constant into the head DSP's C port (measured in an exploration build at
-  FoM 0.01609 / 0.01755) once the generic clamp is not needed.
-- A start-of-frame input (as AXI4-Stream `tuser`) so that a partial frame can be dropped without a
-  reset.
-- Evaluate Double-MAC packing for K ≥ 2, where two weights can share one pixel operand.
-- Run the board demonstration on camera input and port the datapath to an ASIC flow.
 
 // =====================================================================
 #heading(numbering: none)[References]
@@ -1288,10 +1491,12 @@ Future work:
   caption: [Commands],
   ```bash
   # golden model unit tests and the hardware regression (QuestaSim on PATH)
-  cd sw && python -m pytest -m "not hardware" && python -m pytest -m hardware
+  cd sw
+  python -m pytest tests -m "not hardware" && python -m pytest tests -m hardware
   # image comparison, e.g. the inspection demo
   python -m conv_lab --image ../docs/report/figures/inputs/inspection_plate.png \
          --size 128 --kernel sobel_x --kernel sobel_y --kernel laplacian --png out.png
+  cd ..
   # FPGA: synthesis, implementation, benchmark power and FoM, PYNQ-Z2 overlay
   .\fpga\run.ps1                                     # Windows
   make fpga                                          # Linux

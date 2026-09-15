@@ -3,9 +3,10 @@
 //
 // Description:
 //   Self-checking testbench for conv_system. Loads the kernels serially over the
-//   shared data bus, streams one frame in raster order, and compares every
+//   shared data bus, streams frames in raster order, and compares every
 //   valid-gated feature of every lane against a reference model of the pipeline
-//   (signed MAC -> round-to-nearest-even -> saturation -> ReLU).
+//   (signed MAC -> round half up -> saturation -> ReLU; ROUND_MODE=0 models the
+//   earlier round-half-to-even builds).
 //
 // Two things the model has to get right, both non-obvious from the port list:
 //
@@ -74,7 +75,7 @@ module conv_system_tb;
    parameter bit ENABLE_RELU = 1'b1;   // override with vsim -gENABLE_RELU=0
    parameter int WINDOW_SIZE = 3;      // override with vsim -gWINDOW_SIZE=<n>
    parameter int INPUT_SIZE  = 32;     // override with vsim -gINPUT_SIZE=<n>; spec minimum is 32
-   // 0: round half to even (rtl_low_area and earlier builds)
+   // 0: round half to even (experiments/round_half_even and earlier builds)
    // 1: round half up, i.e. floor((x + 2^(DROP-1)) / 2^DROP) - conv_system in
    //    hw/ and every experiments build (default)
    parameter int ROUND_MODE  = 1;

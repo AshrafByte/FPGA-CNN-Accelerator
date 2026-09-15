@@ -148,13 +148,20 @@ module conv_system_power_tb;
       @(posedge clk);
 
       // The same kernel into every lane, lane by lane.
-      for (int n = 0; n < NUM_KERNELS; n++)
+      // i_select_kernel is used unregistered by conv_system, so it is held one
+      // idle cycle past each lane's last weight before the next lane (K >= 2).
+      for (int n = 0; n < NUM_KERNELS; n++) begin
          for (int k = 0; k < WINDOW_ELEMENTS; k++) begin
             i_weight_valid  <= 1'b1;
             i_select_kernel <= ($clog2(NUM_KERNELS)+1)'(n);
             i_data          <= data_t'(kernel[k]);
             @(posedge clk);
          end
+         if (n < NUM_KERNELS - 1) begin
+            i_weight_valid <= 1'b0;
+            @(posedge clk);
+         end
+      end
       i_weight_valid  <= 1'b0;
       i_select_kernel <= '0;
       i_data          <= '0;

@@ -1,12 +1,13 @@
-conv_lab hardware regression, started 2026-09-15 13:25:44
+conv_lab hardware regression, started 2026-09-15 17:21:27
 --sizes 32 · --seeds 20 · raw features
-84 case(s): 84 passed, 0 failed, 0 errored
+87 frame(s): 87 passed, 0 failed, 0 errored
 
 PASS   test_every_preset_on_every_pattern[32px-ramp]       32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-ramp.png
 PASS   test_every_preset_on_every_pattern[32px-checker]    32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-checker.png
 PASS   test_every_preset_on_every_pattern[32px-circle]     32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-circle.png
 PASS   test_every_preset_on_every_pattern[32px-bars]       32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-bars.png
 PASS   test_every_preset_on_every_pattern[32px-noise]      32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-noise.png
+PASS   test_every_preset_on_every_pattern[32px-edges]      32x32  3x3  12 kernel(s)  test_every_preset_on_every_pattern-32px-edges.png
 PASS   test_frame_size[4]                                    4x4  3x3   4 kernel(s)  test_frame_size-4.png
 PASS   test_frame_size[5]                                    5x5  3x3   4 kernel(s)  test_frame_size-5.png
 PASS   test_frame_size[7]                                    7x7  3x3   4 kernel(s)  test_frame_size-7.png
@@ -35,16 +36,18 @@ PASS   test_lane_count[32px-9]                             32x32  3x3   9 kernel
 PASS   test_lane_count[32px-16]                            32x32  3x3  16 kernel(s)  test_lane_count-32px-16.png
 PASS   test_window_size[32px-5]                            32x32  5x5   3 kernel(s)  test_window_size-32px-5.png
 PASS   test_window_size[32px-7]                            32x32  7x7   3 kernel(s)  test_window_size-32px-7.png
-PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame0]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame0.png
-PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame1]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame1.png
-PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame2]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame2.png
-PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame3]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame3.png
-PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame4]    32x32  3x3   4 kernel(s)  5 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame4.png
-PASS   test_stream_every_pattern_without_reset[32px-gap5][frame0]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame0.png
-PASS   test_stream_every_pattern_without_reset[32px-gap5][frame1]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame1.png
-PASS   test_stream_every_pattern_without_reset[32px-gap5][frame2]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame2.png
-PASS   test_stream_every_pattern_without_reset[32px-gap5][frame3]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame3.png
-PASS   test_stream_every_pattern_without_reset[32px-gap5][frame4]    32x32  3x3   4 kernel(s)  5 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame4.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame0]    32x32  3x3   4 kernel(s)  6 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame0.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame1]    32x32  3x3   4 kernel(s)  6 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame1.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame2]    32x32  3x3   4 kernel(s)  6 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame2.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame3]    32x32  3x3   4 kernel(s)  6 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame3.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame4]    32x32  3x3   4 kernel(s)  6 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame4.png
+PASS   test_stream_every_pattern_without_reset[32px-back_to_back][frame5]    32x32  3x3   4 kernel(s)  6 frames, gap 0  test_stream_every_pattern_without_reset-32px-back_to_back-frame5.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame0]    32x32  3x3   4 kernel(s)  6 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame0.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame1]    32x32  3x3   4 kernel(s)  6 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame1.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame2]    32x32  3x3   4 kernel(s)  6 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame2.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame3]    32x32  3x3   4 kernel(s)  6 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame3.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame4]    32x32  3x3   4 kernel(s)  6 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame4.png
+PASS   test_stream_every_pattern_without_reset[32px-gap5][frame5]    32x32  3x3   4 kernel(s)  6 frames, gap 5  test_stream_every_pattern_without_reset-32px-gap5-frame5.png
 PASS   test_stream_window_size[32px-5][frame0]             32x32  5x5   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-5-frame0.png
 PASS   test_stream_window_size[32px-5][frame1]             32x32  5x5   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-5-frame1.png
 PASS   test_stream_window_size[32px-5][frame2]             32x32  5x5   2 kernel(s)  3 frames, gap 0  test_stream_window_size-32px-5-frame2.png

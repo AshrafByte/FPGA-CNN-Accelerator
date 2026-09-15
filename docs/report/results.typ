@@ -57,7 +57,7 @@
 // ---- Verification ----
 #let verif = (
   golden-lang: [Python 3 / NumPy],
-  cases: [289 328],             // features compared by the 61-case hardware regression (84 frames)
+  cases: [307 328],             // features compared by the 62-case hardware regression (87 frames)
   mismatches: 0,
   status: [Pass, bit-exact],
 )

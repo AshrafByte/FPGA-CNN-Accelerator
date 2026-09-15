@@ -198,6 +198,9 @@ LEDs: LD0 weights loaded, LD1 streaming, LD2 frame done, LD3 heartbeat.
 .\fpga\run.ps1 -Steps bitstream -K 2 -W 64      # other overlay configurations
 ```
 
+The bitstream step always writes `fpga/bitstream/conv_demo.*`, so building another configuration
+replaces the delivered overlay; keep a copy first.
+
 Default overlay (3x3, 32x32, one kernel): 813 LUT, 9 DSP, 0.5 BRAM tile for the whole
 demo (AXI interconnect, wrapper, result memory and conv_system), WNS +2.560 ns at 100 MHz,
 bitstream in about 7 minutes. `conv_demo.hwh` maps `M_AXI` at 0x43C00000-0x43CFFFFF with

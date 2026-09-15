@@ -8,7 +8,7 @@
 //   than LUT fabric (Vivado-specific synthesis attribute).
 //
 // Architecture:
-//   - INPUTS_NUM independent combinational multipliers, one per input pair.
+//   - INPUTS_NUM independent multipliers, one DSP48 slice per input pair.
 //   - No shared logic between lanes - each product is computed and
 //     registered fully in parallel with every other lane.
 //   - (* use_dsp = "yes" *) on the product register instructs Vivado's
@@ -19,16 +19,17 @@
 // Data Flow:
 //   - i_pixels and i_weights are multiplied elementwise, lane for lane.
 //   - Products are registered and driven out as o_products.
-//   - i_valid_in is registered alongside the products into o_valid_out.
+//   - i_valid is delayed alongside the products into o_valid.
 //
 // Timing:
-//   - Multiplication is combinational; products and valid are captured on
-//     the rising clock edge, giving the module one cycle of latency.
+//   - Three register stages per product, all inside the DSP48 slice: A/B input
+//     registers, MREG after the multiplier, PREG at the output. Latency 3;
+//     o_valid is i_valid delayed by the same three cycles.
 //
 // Assumptions:
 //   - i_pixels[i] and i_weights[i] correspond to the same tap index i -
 //     caller is responsible for consistent ordering between the two arrays.
-//   - i_valid_in reflects that both i_pixels and i_weights are valid and
+//   - i_valid reflects that both i_pixels and i_weights are valid and
 //     stable on the same cycle.
 //   - use_dsp is a Vivado-specific attribute; synthesizing this module on a
 //     non-Xilinx toolchain will simply ignore it (no functional effect,

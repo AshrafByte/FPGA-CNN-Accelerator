@@ -1,3 +1,28 @@
+//------------------------------------------------------------------------------
+// Module: window_generator
+//
+// Description:
+//   N x N sliding window (N = WINDOW_SIZE) over the rows delivered by
+//   line_buffer. Each window row is a WINDOW_SIZE-deep shift register of
+//   PIXEL_WIDTH-bit registers fed by one line-buffer tap, so every accepted
+//   pixel moves the window one column along the raster scan (stride 1).
+//
+// Tap order:
+//   A new column enters at column index 0, so the flattened window is
+//   row-ascending but column-descending:
+//     o_window[r*N + c] == image[row + r][col + (N-1-c)]
+//   The host writes each kernel row right to left to obtain a correlation.
+//
+// Valid:
+//   A column counter, cleared by the line buffer's row-done pulse and advanced
+//   on every write, counts the columns of the current row; o_valid is
+//   registered and high when rows_ready is set and N-1 earlier columns of the
+//   row are present, so the partial windows at the start of a row never appear.
+//
+// Timing:
+//   - Latency 1: the window and o_valid are registered on the write edge.
+//   - A stall (write enable low) holds every register.
+//------------------------------------------------------------------------------
 module window_generator #(
    parameter  int  PIXEL_WIDTH = 8,
    parameter  int  WINDOW_SIZE = 3,

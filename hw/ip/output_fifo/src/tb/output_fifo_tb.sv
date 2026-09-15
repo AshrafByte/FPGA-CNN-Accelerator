@@ -110,16 +110,16 @@ interface output_fifo_bfm #(
 
    // drives one value for exactly one clock edge; last marks a frame's final entry
    task automatic write_one(input logic [PIXEL_WIDTH-1:0] value, input logic last = 1'b0);
-      i_valid_in = 1'b1;
-      i_data_in  = value;
-      i_last_in  = last;
+      i_valid_in <= 1'b1;
+      i_data_in  <= value;
+      i_last_in  <= last;
       @(posedge clk);
    endtask
 
    // deasserts valid for exactly one clock edge - models an upstream gap
    task automatic write_idle_cycle();
-      i_valid_in = 1'b0;
-      i_last_in  = 1'b0;
+      i_valid_in <= 1'b0;
+      i_last_in  <= 1'b0;
       @(posedge clk);
    endtask
 
@@ -202,8 +202,8 @@ module output_fifo_tb;
          if ((i % gap_every) == (gap_every - 1))
             bfm.write_idle_cycle();
       end
-      bfm.i_valid_in = 1'b0;
-      bfm.i_last_in  = 1'b0;
+      bfm.i_valid_in <= 1'b0;
+      bfm.i_last_in  <= 1'b0;
    endtask
 
    // waits until every written value has been drained, watching for a stall,

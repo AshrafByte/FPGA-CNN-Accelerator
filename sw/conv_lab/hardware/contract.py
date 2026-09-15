@@ -2,15 +2,21 @@
 
 Three files change hands, all plain text under the run directory:
 
-  stimulus.txt   written by write_stimulus, read by $fscanf in the testbench:
+  stimulus.txt   written by write_stimulus / write_stream_stimulus, read by
+                 $fscanf in the testbench:
                      INPUT_SIZE WINDOW_SIZE NUM_KERNELS
                      NUM_KERNELS * WINDOW_SIZE**2 signed weights, kernel-major
-                     INPUT_SIZE**2 pixels (0..255), raster order
+                     one or more frames of INPUT_SIZE**2 pixels (0..255), raster order
 
-  features.txt   written by the testbench, read by parse_results:
+  features.txt   written by the testbench, read by parse_results / parse_stream_results:
                      # comment
-                     OUTPUT_SIZE NUM_KERNELS DROP
-                     one raster line per output pixel, NUM_KERNELS values each
+                     OUTPUT_SIZE NUM_KERNELS DROP NUM_FRAMES
+                     one raster line per output pixel, frame after frame,
+                     NUM_KERNELS values each
+
+The testbench streams every frame of stimulus.txt after a single reset, with no
+reset in between, and fails the run unless o_frame_done marks the last feature
+of each frame. A header without NUM_FRAMES is read as one frame.
 
   sim.log        the simulator's combined stdout/stderr, kept for diagnosis
 
@@ -54,15 +60,34 @@ def pack_kernel(kernel: Kernel) -> list[int]:
 
 
 def write_stimulus(path: Path, image: np.ndarray, kernels: Sequence[Kernel]) -> None:
-    window = kernels[0].size
-    lines = [f"{image.shape[0]} {window} {len(kernels)}"]
+    """One frame: the kernels, then the image."""
+    write_stream_stimulus(path, [image], kernels)
+
+
+def write_stream_stimulus(path: Path, frames: Sequence[np.ndarray], kernels: Sequence[Kernel]) -> None:
+    """The kernels once, then every frame in order; all frames share one shape."""
+    if not frames:
+        raise ValueError("a stream needs at least one frame")
+    shape = frames[0].shape
+    if any(frame.shape != shape for frame in frames):
+        raise ValueError(f"every frame of a stream must be {shape[0]}x{shape[1]}")
+
+    lines = [f"{shape[0]} {kernels[0].size} {len(kernels)}"]
     lines += [" ".join(str(w) for w in pack_kernel(k)) for k in kernels]
-    lines += [" ".join(str(p) for p in row) for row in image.tolist()]
+    for frame in frames:
+        lines += [" ".join(str(p) for p in row) for row in frame.tolist()]
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
 def parse_results(path: Path, num_kernels: int, output_size: int) -> tuple[np.ndarray, int]:
-    """Read features.txt back into (num_kernels, output_size, output_size), plus DROP."""
+    """Read a one-frame features.txt back into (num_kernels, output_size, output_size), plus DROP."""
+    frames, drop = parse_stream_results(path, num_kernels, output_size, num_frames=1)
+    return frames[0], drop
+
+
+def parse_stream_results(path: Path, num_kernels: int, output_size: int,
+                         num_frames: int) -> tuple[np.ndarray, int]:
+    """Read features.txt back into (num_frames, num_kernels, output_size, output_size), plus DROP."""
     if not path.is_file():
         raise TestbenchError(f"the testbench produced no result file at {path}")
 
@@ -72,17 +97,19 @@ def parse_results(path: Path, num_kernels: int, output_size: int) -> tuple[np.nd
         raise TestbenchError(f"result file {path} is empty")
 
     header, *body = rows
-    if len(header) != 3:
+    if len(header) not in (3, 4):
         raise TestbenchError(f"malformed result header in {path}: {' '.join(header)!r}")
 
-    got_size, got_kernels, drop = (int(v) for v in header)
-    if (got_size, got_kernels) != (output_size, num_kernels):
+    got_size, got_kernels, drop = (int(v) for v in header[:3])
+    got_frames = int(header[3]) if len(header) == 4 else 1
+    if (got_size, got_kernels, got_frames) != (output_size, num_kernels, num_frames):
         raise TestbenchError(
-            f"result header says {got_size}x{got_size} x {got_kernels} kernel(s), "
-            f"expected {output_size}x{output_size} x {num_kernels}"
+            f"result header says {got_size}x{got_size} x {got_kernels} kernel(s) x {got_frames} frame(s), "
+            f"expected {output_size}x{output_size} x {num_kernels} x {num_frames}"
         )
 
-    expected = output_size * output_size
+    per_frame = output_size * output_size
+    expected = num_frames * per_frame
     if len(body) != expected:
         raise TestbenchError(f"expected {expected} feature row(s) in {path}, got {len(body)}")
 
@@ -96,5 +123,6 @@ def parse_results(path: Path, num_kernels: int, output_size: int) -> tuple[np.nd
             f"expected {num_kernels} value(s) per line in {path}, got {flat.shape[1]}"
         )
 
-    # (pixels, kernels) -> (kernels, row, col)
-    return flat.T.reshape(num_kernels, output_size, output_size), drop
+    # (frames * pixels, kernels) -> (frames, kernels, row, col)
+    by_frame = flat.reshape(num_frames, per_frame, num_kernels).transpose(0, 2, 1)
+    return by_frame.reshape(num_frames, num_kernels, output_size, output_size), drop

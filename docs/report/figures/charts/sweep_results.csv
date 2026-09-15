@@ -1,0 +1,65 @@
+design,mac_sel,n,status,lut,lutram,ff,dsp,bram,resource_points,wns_ns,fmax_mhz,power_mw,dynamic_mw,static_mw,fom,max_dsp,tag,note
+conv_single_chain,3,2,ok,52,21,226,4,0,252,3.114,318.9,122.760,18.134,104.626,0.032325,,sweep_conv_single_chain_n02,reused
+conv_single_chain,3,3,ok,78,41,521,9,0,528,1.996,235.1,123.776,19.136,104.640,0.015301,,sweep_conv_single_chain_n03,built in 1.6 min
+conv_single_chain,3,4,ok,122,69,1269,16,0,922,1.394,205.9,129.142,24.425,104.717,0.008398,,sweep_conv_single_chain_n04,built in 1.6 min
+conv_single_chain,3,5,ok,128,77,2803,25,0,1378,0.787,183.0,143.435,38.512,104.923,0.005059,,sweep_conv_single_chain_n05,built in 1.7 min
+conv_single_chain,3,6,ok,199,130,5560,36,0,1999,0.551,175.5,158.015,52.881,105.134,0.003166,,sweep_conv_single_chain_n06,built in 2.0 min
+conv_single_chain,3,7,ok,210,138,10062,49,0,2660,0.549,175.4,199.343,93.605,105.738,0.001886,,sweep_conv_single_chain_n07,built in 2.3 min
+conv_single_chain,3,8,not_run,,,,,,,,,,,,,,sweep_conv_single_chain_n08,"not run: the single chain is one 64-slice PCOUT->PCIN cascade, longer than a 60-slice DSP column of the xc7z020"
+conv_single_chain,3,9,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n09,not continued: N = 8 cannot fit
+conv_single_chain,3,10,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n10,not continued: N = 8 cannot fit
+conv_single_chain,3,11,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n11,not continued: N = 8 cannot fit
+conv_single_chain,3,12,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n12,not continued: N = 8 cannot fit
+conv_single_chain,3,13,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n13,not continued: N = 8 cannot fit
+conv_single_chain,3,14,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n14,not continued: N = 8 cannot fit
+conv_single_chain,3,15,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n15,not continued: N = 8 cannot fit
+conv_single_chain,3,16,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n16,not continued: N = 8 cannot fit
+conv_single_chain,3,17,not_continued,,,,,,,,,,,,,,sweep_conv_single_chain_n17,not continued: N = 8 cannot fit
+conv_row_chain,2,2,ok,66,21,214,4,0,266,2.639,276.9,123.237,18.605,104.633,0.030505,,sweep_conv_row_chain_n02,built in 1.5 min
+conv_row_chain,2,3,ok,112,41,362,9,0,562,1.650,217.4,125.271,20.609,104.662,0.014204,,sweep_conv_row_chain_n03,built in 1.5 min
+conv_row_chain,2,4,ok,175,69,553,16,0,975,1.231,199.2,132.332,27.569,104.763,0.007751,,sweep_conv_row_chain_n04,built in 1.5 min
+conv_row_chain,2,5,ok,228,97,826,25,0,1478,0.340,169.2,132.456,27.691,104.765,0.005108,,sweep_conv_row_chain_n05,built in 1.7 min
+conv_row_chain,2,6,ok,347,177,1089,36,0,2147,0.384,170.5,146.716,41.745,104.971,0.003175,,sweep_conv_row_chain_n06,built in 1.7 min
+conv_row_chain,2,7,ok,409,221,1415,49,0,2859,0.390,170.6,165.874,60.626,105.248,0.002109,,sweep_conv_row_chain_n07,built in 1.9 min
+conv_row_chain,2,8,ok,482,273,1772,64,0,3682,0.099,162.6,183.334,77.831,105.503,0.001481,,sweep_conv_row_chain_n08,built in 1.9 min
+conv_row_chain,2,9,ok,581,333,2265,81,0,4631,0.205,165.4,205.597,99.766,105.831,0.001050,,sweep_conv_row_chain_n09,built in 2.1 min
+conv_row_chain,2,10,ok,669,401,2718,100,0,5669,0.185,164.9,275.306,168.432,106.873,0.000641,,sweep_conv_row_chain_n10,built in 2.2 min
+conv_row_chain,2,11,ok,768,477,3243,121,0,6818,0.301,168.1,303.699,196.393,107.306,0.000483,,sweep_conv_row_chain_n11,built in 2.4 min
+conv_row_chain,2,12,ok,880,561,3786,144,0,8080,0.072,161.9,341.883,233.989,107.894,0.000362,,sweep_conv_row_chain_n12,built in 2.6 min
+conv_row_chain,2,13,ok,998,653,4421,169,0,9448,0.128,163.3,376.998,268.555,108.443,0.000281,,sweep_conv_row_chain_n13,built in 2.9 min
+conv_row_chain,2,14,ok,1123,753,5065,196,0,10923,0.083,162.2,421.591,312.440,109.150,0.000217,,sweep_conv_row_chain_n14,built in 3.2 min
+conv_row_chain,2,15,not_run,,,,,,,,,,,,,,sweep_conv_row_chain_n15,"not run: 225 DSPs exceed the 220 of the device, and the row chains cannot move multipliers into fabric"
+conv_row_chain,2,16,not_continued,,,,,,,,,,,,,,sweep_conv_row_chain_n16,not continued: N = 15 cannot fit
+conv_row_chain,2,17,not_continued,,,,,,,,,,,,,,sweep_conv_row_chain_n17,not continued: N = 15 cannot fit
+conv_tree,1,2,ok,99,21,248,4,0,299,2.962,304.1,129.349,24.628,104.720,0.025856,,sweep_conv_tree_n02,built in 1.5 min
+conv_tree,1,3,ok,211,41,472,9,0,661,1.930,231.5,137.656,32.816,104.840,0.010990,,sweep_conv_tree_n03,built in 1.5 min
+conv_tree,1,4,ok,373,69,663,16,0,1173,2.002,235.4,147.374,42.394,104.980,0.005785,,sweep_conv_tree_n04,built in 1.6 min
+conv_tree,1,5,ok,539,77,1020,25,0,1789,1.637,216.8,160.939,55.762,105.177,0.003473,,sweep_conv_tree_n05,built in 1.6 min
+conv_tree,1,6,ok,823,147,1367,36,0,2623,1.427,207.3,175.577,70.187,105.390,0.002171,,sweep_conv_tree_n06,built in 1.7 min
+conv_tree,1,7,ok,1052,153,1824,49,0,3502,1.491,210.1,192.245,86.611,105.634,0.001485,,sweep_conv_tree_n07,built in 1.8 min
+conv_tree,1,8,ok,1292,145,2300,64,0,4492,1.350,204.1,214.734,108.768,105.966,0.001037,,sweep_conv_tree_n08,built in 1.9 min
+conv_tree,1,9,ok,1627,169,2936,81,0,5677,1.442,208.0,232.695,126.462,106.233,0.000757,,sweep_conv_tree_n09,built in 2.1 min
+conv_tree,1,10,ok,1963,179,3545,100,0,6963,1.029,191.5,253.637,147.091,106.546,0.000566,,sweep_conv_tree_n10,built in 2.2 min
+conv_tree,1,11,ok,2308,169,4289,121,0,8358,0.866,185.7,294.166,187.006,107.160,0.000407,,sweep_conv_tree_n11,built in 2.3 min
+conv_tree,1,12,ok,2700,197,5050,144,0,9900,1.607,215.4,260.564,153.914,106.651,0.000388,,sweep_conv_tree_n12,built in 2.6 min
+conv_tree,1,13,ok,3105,185,5975,169,0,11555,1.725,221.0,269.737,162.948,106.789,0.000321,,sweep_conv_tree_n13,built in 2.8 min
+conv_tree,1,14,ok,3601,211,6820,196,0,13401,1.524,211.6,290.654,183.547,107.106,0.000257,,sweep_conv_tree_n14,built in 3.0 min
+conv_tree,1,15,ok,5756,217,9023,200,0,15756,0.075,161.9,344.556,236.621,107.936,0.000184,200,sweep_conv_tree_n15,built in 3.9 min
+conv_tree,1,16,ok,8208,209,11532,200,0,18208,0.073,161.9,400.052,291.244,108.807,0.000137,200,sweep_conv_tree_n16,built in 5.0 min
+conv_tree,1,17,ok,10917,233,14323,200,0,20917,-0.146,156.3,455.714,346.015,109.700,0.000105,200,sweep_conv_tree_n17,built in 5.8 min
+system,3,2,ok,52,21,226,4,0,252,3.114,318.9,122.760,18.134,104.626,0.032325,,sweep_conv_single_chain_n02,= conv_single_chain (MAC_ARCH 0 selects MAC_SEL 3)
+system,3,3,ok,78,41,521,9,0,528,1.996,235.1,123.776,19.136,104.640,0.015301,,sweep_conv_single_chain_n03,= conv_single_chain (MAC_ARCH 0 selects MAC_SEL 3)
+system,2,4,ok,175,69,553,16,0,975,1.231,199.2,132.332,27.569,104.763,0.007751,,sweep_conv_row_chain_n04,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2)
+system,2,5,ok,228,97,826,25,0,1478,0.340,169.2,132.456,27.691,104.765,0.005108,,sweep_conv_row_chain_n05,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2)
+system,2,6,ok,347,177,1089,36,0,2147,0.384,170.5,146.716,41.745,104.971,0.003175,,sweep_conv_row_chain_n06,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2)
+system,2,7,ok,409,221,1415,49,0,2859,0.390,170.6,165.874,60.626,105.248,0.002109,,sweep_conv_row_chain_n07,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2)
+system,2,8,ok,482,273,1772,64,0,3682,0.099,162.6,183.334,77.831,105.503,0.001481,,sweep_conv_row_chain_n08,= conv_row_chain (MAC_ARCH 0 selects MAC_SEL 2)
+system,1,9,ok,1627,169,2936,81,0,5677,1.442,208.0,232.695,126.462,106.233,0.000757,,sweep_conv_tree_n09,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,10,ok,1963,179,3545,100,0,6963,1.029,191.5,253.637,147.091,106.546,0.000566,,sweep_conv_tree_n10,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,11,ok,2308,169,4289,121,0,8358,0.866,185.7,294.166,187.006,107.160,0.000407,,sweep_conv_tree_n11,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,12,ok,2700,197,5050,144,0,9900,1.607,215.4,260.564,153.914,106.651,0.000388,,sweep_conv_tree_n12,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,13,ok,3105,185,5975,169,0,11555,1.725,221.0,269.737,162.948,106.789,0.000321,,sweep_conv_tree_n13,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,14,ok,3601,211,6820,196,0,13401,1.524,211.6,290.654,183.547,107.106,0.000257,,sweep_conv_tree_n14,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,15,ok,5756,217,9023,200,0,15756,0.075,161.9,344.556,236.621,107.936,0.000184,200,sweep_conv_tree_n15,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,16,ok,8208,209,11532,200,0,18208,0.073,161.9,400.052,291.244,108.807,0.000137,200,sweep_conv_tree_n16,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)
+system,1,17,ok,10917,233,14323,200,0,20917,-0.146,156.3,455.714,346.015,109.700,0.000105,200,sweep_conv_tree_n17,= conv_tree (MAC_ARCH 0 selects MAC_SEL 1)

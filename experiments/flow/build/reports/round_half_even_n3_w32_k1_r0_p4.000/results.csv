@@ -1,0 +1,4 @@
+tag,benchmark,lut,lutram,ff,dsp,bram,resource_points,wns_ns,fmax_mhz,power_mw,dynamic_mw,static_mw,nets_matched,throughput_px_per_cycle,fom
+round_half_even_n3_w32_k1_r0_p4.000,default,93,41,521,9,0,543,0.414,278.9,160.467,55.297,105.170,"NA",1,0.011477
+round_half_even_n3_w32_k1_r0_p4.000,bars_sobel_x,93,41,521,9,0,543,0.414,278.9,120.628,16.033,104.595,"8%   (91/1103)",1,0.015267
+round_half_even_n3_w32_k1_r0_p4.000,checker_sobel_y,93,41,521,9,0,543,0.414,278.9,111.068,6.609,104.459,"8%   (91/1103)",1,0.016581

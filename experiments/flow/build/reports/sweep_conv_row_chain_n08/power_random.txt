@@ -1,0 +1,186 @@
+Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version     : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
+| Date             : Tue Sep 15 18:43:30 2026
+| Host             : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
+| Command          : report_power -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/experiments/flow/build/reports/sweep_conv_row_chain_n08/power_random.txt}
+| Design           : conv_system
+| Device           : xc7z020clg400-1
+| Design State     : routed
+| Grade            : commercial
+| Process          : typical
+| Characterization : Production
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Power Report
+
+Table of Contents
+-----------------
+1. Summary
+1.1 On-Chip Components
+1.2 Power Supply Summary
+1.3 Confidence Level
+2. Settings
+2.1 Environment
+2.2 Clock Constraints
+3. Detailed Reports
+3.1 By Hierarchy
+
+1. Summary
+----------
+
++--------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Total On-Chip Power (uW) | 183334.438                                                                                                                                                                                         |
+| Design Power Budget (uW) | Unspecified*                                                                                                                                                                                       |
+| Power Budget Margin (uW) | NA                                                                                                                                                                                                 |
+| Dynamic (uW)             | 77831.148                                                                                                                                                                                          |
+| Device Static (uW)       | 105503.289                                                                                                                                                                                         |
+| Effective TJA (C/W)      | 11.5                                                                                                                                                                                               |
+| Max Ambient (C)          | 82.9                                                                                                                                                                                               |
+| Junction Temperature (C) | 27.1                                                                                                                                                                                               |
+| Confidence Level         | Medium                                                                                                                                                                                             |
+| Setting File             | ---                                                                                                                                                                                                |
+| Simulation Activity File | F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/experiments/flow/build/sim/sweep_conv_row_chain_n08/random/conv.saif |
+| Design Nets Matched      | 1%   (72/5527)                                                                                                                                                                                     |
++--------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+* Specify Design Power Budget using, set_operating_conditions -design_power_budget <value in Watts>
+
+
+1.1 On-Chip Components
+----------------------
+
++--------------------------+------------+----------+-----------+-----------------+
+| On-Chip                  | Power (uW) | Used     | Available | Utilization (%) |
++--------------------------+------------+----------+-----------+-----------------+
+| Clocks                   | 14053.628  |        3 |       --- |             --- |
+| Slice Logic              |  1975.775  |     2458 |       --- |             --- |
+|   LUT as Logic           |  1327.307  |      209 |     53200 |            0.39 |
+|   CARRY4                 |   257.950  |       42 |     13300 |            0.32 |
+|   LUT as Shift Register  |   157.087  |      185 |     17400 |            1.06 |
+|   LUT as Distributed RAM |   122.528  |       88 |     17400 |            0.51 |
+|   Register               |   110.900  |     1772 |    106400 |            1.67 |
+|   Others                 |     0.000  |       11 |       --- |             --- |
+| Signals                  |  4627.349  |     4800 |       --- |             --- |
+| DSPs                     | 48421.184  |       64 |       220 |           29.09 |
+| I/O                      |  8753.216  |       31 |       125 |           24.80 |
+| Static Power             | 105503.289 |          |           |                 |
+| Total                    | 183334.453 |          |           |                 |
++--------------------------+------------+----------+-----------+-----------------+
+
+
+1.2 Power Supply Summary
+------------------------
+
++-----------+-------------+-----------+-------------+------------+
+| Source    | Voltage (V) | Total (A) | Dynamic (A) | Static (A) |
++-----------+-------------+-----------+-------------+------------+
+| Vccint    |       1.000 |     0.077 |       0.069 |      0.008 |
+| Vccaux    |       1.800 |     0.011 |       0.001 |      0.010 |
+| Vcco33    |       3.300 |     0.000 |       0.000 |      0.000 |
+| Vcco25    |       2.500 |     0.000 |       0.000 |      0.000 |
+| Vcco18    |       1.800 |     0.005 |       0.004 |      0.001 |
+| Vcco15    |       1.500 |     0.000 |       0.000 |      0.000 |
+| Vcco135   |       1.350 |     0.000 |       0.000 |      0.000 |
+| Vcco12    |       1.200 |     0.000 |       0.000 |      0.000 |
+| Vccaux_io |       1.800 |     0.000 |       0.000 |      0.000 |
+| Vccbram   |       1.000 |     0.000 |       0.000 |      0.000 |
+| MGTAVcc   |       1.000 |     0.000 |       0.000 |      0.000 |
+| MGTAVtt   |       1.200 |     0.000 |       0.000 |      0.000 |
+| MGTVccaux |       1.800 |     0.000 |       0.000 |      0.000 |
+| Vccpint   |       1.000 |     0.017 |       0.000 |      0.017 |
+| Vccpaux   |       1.800 |     0.010 |       0.000 |      0.010 |
+| Vccpll    |       1.800 |     0.003 |       0.000 |      0.003 |
+| Vcco_ddr  |       1.500 |     0.000 |       0.000 |      0.000 |
+| Vcco_mio0 |       1.800 |     0.000 |       0.000 |      0.000 |
+| Vcco_mio1 |       1.800 |     0.000 |       0.000 |      0.000 |
+| Vccadc    |       1.800 |     0.020 |       0.000 |      0.020 |
++-----------+-------------+-----------+-------------+------------+
+
+
+1.3 Confidence Level
+--------------------
+
++-----------------------------+------------+-------------------------------------------------------+------------------------------------------------------------------------------------------------------------+
+| User Input Data             | Confidence | Details                                               | Action                                                                                                     |
++-----------------------------+------------+-------------------------------------------------------+------------------------------------------------------------------------------------------------------------+
+| Design implementation state | High       | Design is routed                                      |                                                                                                            |
+| Clock nodes activity        | High       | User specified more than 95% of clocks                |                                                                                                            |
+| I/O nodes activity          | Medium     | More than 5% of inputs are missing user specification | Provide missing input activity with simulation results or by editing the "By Resource Type -> I/Os" view   |
+| Internal nodes activity     | Medium     | User specified less than 25% of internal nodes        | Provide missing internal nodes activity with simulation results or by editing the "By Resource Type" views |
+| Device models               | High       | Device models are Production                          |                                                                                                            |
+|                             |            |                                                       |                                                                                                            |
+| Overall confidence level    | Medium     |                                                       |                                                                                                            |
++-----------------------------+------------+-------------------------------------------------------+------------------------------------------------------------------------------------------------------------+
+
+
+2. Settings
+-----------
+
+2.1 Environment
+---------------
+
++-----------------------+------------------------+
+| Ambient Temp (C)      | 25.0                   |
+| ThetaJA (C/W)         | 11.5                   |
+| Airflow (LFM)         | 250                    |
+| Heat Sink             | none                   |
+| ThetaSA (C/W)         | 0.0                    |
+| Board Selection       | medium (10"x10")       |
+| # of Board Layers     | 8to11 (8 to 11 Layers) |
+| Board Temperature (C) | 25.0                   |
++-----------------------+------------------------+
+
+
+2.2 Clock Constraints
+---------------------
+
++-------+--------+-----------------+
+| Clock | Domain | Constraint (ns) |
++-------+--------+-----------------+
+| clk   | clk    |             6.3 |
++-------+--------+-----------------+
+
+
+3. Detailed Reports
+-------------------
+
+3.1 By Hierarchy
+----------------
+
++--------------------------------------------+------------+
+| Name                                       | Power (uW) |
++--------------------------------------------+------------+
+| conv_system                                | 77831.164  |
+|   gen_kerenl_register[0].u_kernel_register |  3321.499  |
+|   gen_mac[0].gen_row_chain.u_mac           | 58775.418  |
+|   gen_output_fifo[0].u_output_fifo         |  1797.244  |
+|     gen_lutram.r_mem_reg_0_63_0_2          |    34.785  |
+|     gen_lutram.r_mem_reg_0_63_12_14        |    30.747  |
+|     gen_lutram.r_mem_reg_0_63_15_15        |    15.964  |
+|     gen_lutram.r_mem_reg_0_63_3_5          |    32.506  |
+|     gen_lutram.r_mem_reg_0_63_6_8          |    33.263  |
+|     gen_lutram.r_mem_reg_0_63_9_11         |    33.244  |
+|     gen_lutram.r_mem_reg_128_191_0_2       |    34.288  |
+|     gen_lutram.r_mem_reg_128_191_12_14     |    31.790  |
+|     gen_lutram.r_mem_reg_128_191_15_15     |    15.977  |
+|     gen_lutram.r_mem_reg_128_191_3_5       |    33.422  |
+|     gen_lutram.r_mem_reg_128_191_6_8       |    33.148  |
+|     gen_lutram.r_mem_reg_128_191_9_11      |    31.585  |
+|     gen_lutram.r_mem_reg_192_255_0_2       |    35.282  |
+|     gen_lutram.r_mem_reg_192_255_12_14     |    31.547  |
+|     gen_lutram.r_mem_reg_192_255_15_15     |    15.918  |
+|     gen_lutram.r_mem_reg_192_255_3_5       |    34.181  |
+|     gen_lutram.r_mem_reg_192_255_6_8       |    32.729  |
+|     gen_lutram.r_mem_reg_192_255_9_11      |    31.685  |
+|     gen_lutram.r_mem_reg_64_127_0_2        |    36.489  |
+|     gen_lutram.r_mem_reg_64_127_12_14      |    29.980  |
+|     gen_lutram.r_mem_reg_64_127_15_15      |    17.033  |
+|     gen_lutram.r_mem_reg_64_127_3_5        |    31.154  |
+|     gen_lutram.r_mem_reg_64_127_6_8        |    33.156  |
+|     gen_lutram.r_mem_reg_64_127_9_11       |    31.475  |
+|   gen_round_sat[0].u_round_saturate        |   375.913  |
+|   u_line_buffer                            |   597.586  |
+|   u_window_generator                       |  3688.550  |
++--------------------------------------------+------------+
+
+

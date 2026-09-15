@@ -32,13 +32,17 @@ python -m conv_lab --image photo.jpg --size 64 --kernel sobel_x --png compare.pn
 python -m conv_lab --pattern circle --size 32 --kernel sobel_x --kernel sobel_y
 python -m conv_lab --pattern ramp --size 16 --weights '1 0 -1; 2 0 -2; 1 0 -1'
 python -m conv_lab --pattern checker --size 32 --kernel laplacian --png out.png --csv out.csv
+python -m conv_lab --pattern edges --size 128 --kernel sobel_x --kernel sobel_y --kernel laplacian --png edges.png
 python -m conv_lab --image photo.jpg --size 64 --kernel sharpen --reference   # no simulator
 ```
 
 Any image format Pillow reads is accepted; it is converted to a single channel
 and resized to `--size` x `--size`. `--pattern` substitutes a synthetic frame
-(`ramp`, `checker`, `circle`, `bars`, `noise`) when the point is the hardware
-rather than the picture.
+(`ramp`, `checker`, `circle`, `bars`, `noise`, `edges`) when the point is the
+hardware rather than the picture. `edges` is a mosaic of irregular cells overlaid
+with random ellipses, polygons and strokes: edges of every direction, length,
+curvature and contrast, where `checker` and `bars` only have horizontal and
+vertical ones at a fixed spacing.
 
 Kernels come from `--kernel` (presets), `--weights` (custom), or both, and
 repeating either flag loads several lanes into one run — the hardware evaluates
@@ -83,16 +87,17 @@ python -m conv_lab --pattern circle --size 32 --kernel sobel_x --reference --rel
 ```
 
 ```
-without --relu:   min  -48   max  48   nonzero 160/900
+without --relu:   min  -47   max  48   nonzero 160/900
 with    --relu:   min    0   max  48   nonzero  80/900
 ```
 
-Exactly half the responses survive, because `sobel_x` on a symmetric shape
-produces a matched negative for every positive — the dark side of each edge is
-what gets zeroed.
+About half the responses survive, because `sobel_x` on a symmetric shape
+produces a negative response for every positive one — the dark side of each
+edge is what gets zeroed.
 
-**ReLU is not part of the hardware.** `conv_system` has no activation stage; its
-feature bus is signed precisely so a downstream stage can make this decision.
+**On this path ReLU is display-only.** `conv_image_tb` builds `conv_system` with
+`ENABLE_RELU = 0` (the hardware `relu_unit` is verified by `conv_system_tb`), so
+its feature bus stays signed and a downstream stage makes this decision.
 So on the testbench path the rectification happens *after* the hardware-vs-model
 check, never before — otherwise a hardware value of −5 and a model value of −9
 would both collapse to 0 and report `MATCH` on a broken DUT. The verdict always
@@ -142,6 +147,11 @@ run = harness.run(image, kernels)                 # reference model + one simula
 run.result.features                               # (2, 62, 62) int32 from the hardware
 run.comparison.all_match                          # every feature bit-exact?
 run.comparison.failures()                         # one line per disagreeing lane
+
+frames = [load_image(p, 64) for p in ("a.png", "b.png", "c.png")]
+runs = harness.run_stream(frames, kernels)        # one simulation, one reset, 3 frames back to back
+runs = harness.run_stream(frames, kernels, gap=9) # ... or 9 idle cycles between frames
+[r.comparison.all_match for r in runs]            # each frame checked on its own
 ```
 
 `Harness.run()` is the run pipeline both front ends share. It validates the
@@ -156,6 +166,13 @@ parses the features back, raising `TestbenchError` if the simulator is missing,
 the run fails, or the frame comes back short. An instance compiles the RTL on
 its first run; later runs only re-elaborate.
 
+`run_stream()` (on both `Harness` and `QuestaTestbench`) sends several frames
+through one simulation after a single reset, the way `conv_system` streams video:
+back to back by default, or `gap` idle cycles apart. It returns one result per
+frame, each compared with its own reference, so a pipeline that failed to re-arm
+at a frame boundary shows up in the frame it smeared. The testbench also fails
+the run unless `o_frame_done` is high exactly on the last feature of every frame.
+
 `RunComparison` holds a verdict per kernel, fixed from the raw frames at
 construction; frames on a shared display scale; PNG rows; failure lines.
 `rectified()` applies ReLU to what is shown and can never change a verdict.
@@ -167,7 +184,7 @@ construction; frames on a shared display scale; PNG rows; failure lines.
 | returns | `HarnessRun`: `.comparison`, and `.result` (a `TestbenchResult`, `features` as `(len(kernels), N-K+1, N-K+1)` `int32`) or `None` without a testbench |
 
 Output is **valid-only** — no padding, so an N x N frame gives (N-K+1) squared
-features — and each value is already `MAC >> drop_bits` with round-half-to-even.
+features — and each value is already `MAC >> drop_bits` with round-half-up (ties toward +infinity).
 
 ### Files exchanged
 
@@ -178,16 +195,18 @@ Three text files, under `sw/.run/` by default (`--run-dir` to move it):
 ```
 INPUT_SIZE WINDOW_SIZE NUM_KERNELS
 <NUM_KERNELS * WINDOW_SIZE**2 signed weights, kernel-major>
-<INPUT_SIZE**2 pixels 0..255, raster order>
+<INPUT_SIZE**2 pixels 0..255, raster order>      one block per frame, as many frames as the stream has
 ```
 
 `features.txt`, written by the testbench:
 
 ```
 # comment
-OUTPUT_SIZE NUM_KERNELS DROP
-<one raster line per output pixel, NUM_KERNELS signed values each>
+OUTPUT_SIZE NUM_KERNELS DROP NUM_FRAMES
+<one raster line per output pixel, frame after frame, NUM_KERNELS signed values each>
 ```
+
+A header without `NUM_FRAMES` is read as one frame.
 
 `sim.log` — the simulator's combined output, kept for diagnosis.
 
@@ -200,13 +219,15 @@ The testbench is usable without Python:
 
 ```bash
 vlib work
-vlog -sv -timescale 1ns/1ps -F hw/system/conv_system/sim/compile.f
+vlog -sv -timescale 1ns/1ps -F <repo>/hw/system/conv_system/sim/compile.f
 vsim -c -gINPUT_SIZE=32 work.conv_image_tb \
      +stim=stimulus.txt +result=features.txt -do "run -all; quit -f"
 ```
 
 Run these from the directory holding `stimulus.txt` — the testbench opens the
-plusarg paths relative to the simulator's working directory.
+plusarg paths relative to the simulator's working directory. Every frame in the
+file streams after one reset, back to back; add `+gap=<cycles>` for idle cycles
+between frames.
 
 ### The one trap: tap order
 
@@ -230,13 +251,13 @@ asserts the flip is what turns it back into a correlation.
 ## What the check actually proves
 
 Each run compares the hardware's frame against `reference.convolve`, an
-independent model of MAC → round-half-to-even → saturate. The result is
+independent model of MAC → round-half-up → saturate. The result is
 `MATCH` only when every feature is bit-exact.
 
 Worth knowing: the 16-bit saturation clamp is **unreachable** with this
 parameterisation. `DROP` is `$clog2(K**2)`, so the worst case is
 `255 * 128 * K**2 >> $clog2(K**2)`, at most `255 * 128 = 32640` — inside the
-signed 16-bit range for every odd K. The clamp only starts earning its keep if
+signed 16-bit range for every K. The clamp only starts earning its keep if
 `PIXEL_WIDTH` or `FEATURE_WIDTH` changes.
 
 ## Regression
@@ -247,14 +268,19 @@ every feature of every lane to match the reference model. It is marked
 
 ```bash
 cd sw
-python -m pytest -m hardware                # the regression: 33 directed + 20 random frames
-python -m pytest -m hardware --seeds 200    # widen the random sweep
-python -m pytest -m hardware --sizes 16,32,64   # run the size-independent cases at each size
-python -m pytest -m hardware --relu         # rectify the saved images (verdicts stay raw)
-python -m pytest -m hardware --save-images regression_results   # keep a PNG of every case
-python -m pytest -m "not hardware"          # fast unit tests, no simulator
-python -m pytest                            # everything
+python -m pytest tests -m hardware                # the regression: 34 directed + 20 random frames + 8 streams
+python -m pytest tests -m hardware --seeds 200    # widen the random sweep
+python -m pytest tests -m hardware --sizes 16,32,64   # run the size-independent cases at each size
+python -m pytest tests -m hardware --relu         # rectify the saved images (verdicts stay raw)
+python -m pytest tests -m hardware --save-images regression_results   # keep a PNG of every case
+python -m pytest tests -m "not hardware"          # fast unit tests, no simulator
+python -m pytest tests                            # everything
 ```
+
+Keep `tests` in the command. `--seeds`, `--sizes`, `--relu` and `--save-images` are
+defined in `tests/conftest.py`, and pytest only knows them when that folder is
+named on the command line; without it they fail with "unrecognized arguments".
+Commands without these options would also work without `tests`.
 
 Each case is one simulation, so the suite spends them carefully: kernels travel
 as parallel lanes (all twelve presets cost a single frame), and the RTL is
@@ -263,14 +289,17 @@ geometry. Run it serially — the cases share one Questa work directory.
 
 | Case | Frames | Targets |
 | --- | ---: | --- |
-| every preset on every pattern | 5 × sizes | all presets as 12 lanes, per synthetic pattern |
+| every preset on every pattern | 6 × sizes | all presets as 12 lanes, per synthetic pattern |
 | frame size | 10 | 4 (smallest legal), 16/17 and 32/33 (line-buffer counter width), odd sizes |
 | every tap position | 2 × sizes | 9 one-hot kernels at +16 and −128 — any tap-order bug shifts a lane |
 | extreme pixels and weights | 4 × sizes | black, white, pixel checker, noise against all-127, all-−128, alternating |
-| round-half-to-even ties | 1 | every pixel 0..255 through centre taps ±1, ±3, ±7 |
+| round-half-up ties | 1 | every pixel 0..255 through centre taps ±1, ±3, ±7 (positive and negative .5 ties) |
 | lane count | 9 × sizes | `NUM_KERNELS` 1–16, across the select bus's width steps |
 | window size | 2 × sizes | 5×5 and 7×7 (sizes too small for the window are skipped) |
 | randomised | `--seeds` | random size, image, window and 1–6 kernels, reproducible from the seed in the test id |
+| stream every pattern | 2 × sizes | the six patterns as consecutive frames after one reset, back to back and 5 cycles apart |
+| stream window size | 2 × sizes | three frames through the 5×5 and 7×7 row-chain builds |
+| stream randomised | 4 | random size (down to window + 1), 2–4 frames, gap 0/1/17 and 1–4 kernels |
 
 When a case fails, its tmp directory keeps `stimulus.txt`, `features.txt`,
 `sim.log` and `mismatch.png` (input | hardware | reference), and the
@@ -316,7 +345,7 @@ sw/
 │       ├── report.py         HarnessRun → terminal, CSV, PNG
 │       └── terminal.py       rules, kernel cards, stats, ASCII layout
 └── tests/
-    ├── conftest.py           --seeds, --save-images, the image gallery
+    ├── conftest.py           --seeds, --sizes, --relu, --save-images, the image gallery
     ├── unit/                 one file per module, plus test_architecture.py
     └── regression/           test_hardware_regression.py (marker: hardware)
 ```
@@ -334,7 +363,7 @@ regression is a second front end on the same `Harness`.
 ```bash
 cd sw
 python -m pytest tests/unit          # fast, no simulator
-python -m pytest -m hardware         # the hardware regression
+python -m pytest tests -m hardware   # the hardware regression
 ```
 
 The hardware half lives in
@@ -356,4 +385,4 @@ NUM_KERNELS=1`. A 32x32 single-kernel run therefore still passes even if the
 `-g` overrides are silently ignored, because the defaults happen to be right.
 Size 16 makes a broken override fail loudly, with the testbench reporting the
 exact mismatch it saw. Once that passes, the geometry path is proven and any
-size works. Then run the full regression: `python -m pytest -m hardware`.
+size works. Then run the full regression: `python -m pytest tests -m hardware`.

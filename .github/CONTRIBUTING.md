@@ -38,7 +38,7 @@ This document defines the RTL, testbench, and verification coding standard for t
 
 ## 2. Repository Structure
 
-Designs move through four maturity levels: `experiments/` → `ip/` → `subsystem/` → `system/`. `verif/` mirrors `hw/` block-for-block — `hw/ip/mac_array/` always pairs with `verif/ip/mac_array/`.
+Designs move through four maturity levels: `experiments/` → `ip/` → `subsystem/` → `system/`. `verif/` mirrors `hw/` block-for-block — `hw/ip/multiplier_array/` pairs with `verif/ip/multiplier_array/`.
 
 ```
 hw/                        verif/
@@ -128,7 +128,7 @@ verif/system/<system_name>/
 └── sim/
 ```
 
-For this project, `<system_name>` is `cnn_accelerator` — so the system-level top module lives at `hw/system/cnn_accelerator/src/rtl/cnn_accelerator.sv` as `module cnn_accelerator`. Same naming rule as every other level: directory name = top module name.
+For this project, `<system_name>` is `conv_system` — so the system-level top module lives at `hw/system/conv_system/src/rtl/conv_system.sv` as `module conv_system`. Same naming rule as every other level: directory name = top module name.
 
 ### 2.5 `common/` (top-level, outside `hw/`/`verif/`)
 

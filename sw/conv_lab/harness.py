@@ -53,14 +53,42 @@ class Harness:
         validate_dimensions(*image.shape, window)
         reference = convolve_all(image, kernels)
         result = None if self.testbench is None else self.testbench.run(image, kernels)
-
-        # The hardware's rounding width checked against the model's: a comparison
-        # of the two sides, so it happens here rather than inside either one.
-        if result is not None and result.drop_bits != drop_bits(window):
-            raise TestbenchError(
-                f"hardware reports DROP={result.drop_bits} but the reference model assumes "
-                f"{drop_bits(window)} - the models have diverged"
-            )
+        if result is not None:
+            _check_drop(result, window)
 
         hardware = None if result is None else result.features
         return HarnessRun(RunComparison.build(image, kernels, reference, hardware), result)
+
+    def run_stream(self, frames: Sequence[np.ndarray], kernels: Sequence[Kernel], *,
+                   gap: int = 0) -> list[HarnessRun]:
+        """Several frames through one simulation with no reset between them.
+
+        Each frame is compared with its own reference, so a pipeline that failed
+        to re-arm between frames shows up as a mismatch in the frame it smeared.
+        Returns one HarnessRun per frame, in order.
+        """
+        window = common_size(kernels)
+        for frame in frames:
+            validate_dimensions(*frame.shape, window)
+        references = [convolve_all(frame, kernels) for frame in frames]
+        results = (None if self.testbench is None
+                   else self.testbench.run_stream(frames, kernels, gap=gap))
+        if results:
+            _check_drop(results[0], window)
+
+        runs = []
+        for index, (frame, reference) in enumerate(zip(frames, references)):
+            result = None if results is None else results[index]
+            hardware = None if result is None else result.features
+            runs.append(HarnessRun(RunComparison.build(frame, kernels, reference, hardware), result))
+        return runs
+
+
+def _check_drop(result: TestbenchResult, window: int) -> None:
+    """The hardware's rounding width checked against the model's: a comparison of
+    the two sides, so it happens here rather than inside either one."""
+    if result.drop_bits != drop_bits(window):
+        raise TestbenchError(
+            f"hardware reports DROP={result.drop_bits} but the reference model assumes "
+            f"{drop_bits(window)} - the models have diverged"
+        )

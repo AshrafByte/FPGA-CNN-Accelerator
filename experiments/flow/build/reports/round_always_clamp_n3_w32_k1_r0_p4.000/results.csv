@@ -1,0 +1,4 @@
+tag,benchmark,lut,lutram,ff,dsp,bram,resource_points,wns_ns,fmax_mhz,power_mw,dynamic_mw,static_mw,nets_matched,throughput_px_per_cycle,fom
+round_always_clamp_n3_w32_k1_r0_p4.000,default,99,41,522,9,0,549,0.520,287.4,160.738,55.564,105.174,"NA",1,0.011332
+round_always_clamp_n3_w32_k1_r0_p4.000,bars_sobel_x,99,41,522,9,0,549,0.520,287.4,128.685,23.974,104.711,"5%   (59/1107)",1,0.014155
+round_always_clamp_n3_w32_k1_r0_p4.000,checker_sobel_y,99,41,522,9,0,549,0.520,287.4,119.267,14.691,104.576,"5%   (59/1107)",1,0.015272

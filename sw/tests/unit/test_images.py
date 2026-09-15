@@ -42,3 +42,21 @@ def test_patterns_are_coarse_enough_for_an_edge_kernel_to_find_edges(pattern, si
     is what the 16x16 checker used to do."""
     out = reference.convolve(generate_pattern(pattern, size), preset("sobel_x"))
     assert (out == 0).any(), "no flat region survived: the pattern is finer than the kernel"
+
+
+def test_edges_pattern_has_edges_across_directions_and_follows_the_seed():
+    """Unlike checker and bars, the edges pattern does not repeat one direction: both
+    Sobel kernels find edges, there are many grey levels, and the seed picks the frame."""
+    frame = generate_pattern("edges", 64, seed=1)
+    assert np.array_equal(frame, generate_pattern("edges", 64, seed=1))
+    assert not np.array_equal(frame, generate_pattern("edges", 64, seed=2))
+    assert len(np.unique(frame)) > 10
+    for kernel in ("sobel_x", "sobel_y"):
+        assert (reference.convolve(frame, preset(kernel)) != 0).mean() > 0.05, kernel
+
+
+@pytest.mark.parametrize("size", [4, 5, 17, 128, 512])
+def test_edges_pattern_works_at_every_legal_size(size):
+    frame = generate_pattern("edges", size)
+    assert frame.shape == (size, size)
+    assert frame.dtype == np.uint8

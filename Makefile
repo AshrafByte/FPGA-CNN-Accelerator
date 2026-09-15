@@ -3,7 +3,7 @@
 # =============================================================================
 # Provides a standard `make <target> IP=...` interface for the team. 
 # Execution logic, module resolution, and simulator dispatching are handled 
-# entirely by common/scripts/python/vrun.py.
+# entirely by common/script/vrun.py.
 #
 # USAGE:
 #   make list
@@ -35,7 +35,7 @@
 # =============================================================================
 
 PYTHON ?= python
-VRUN   := common/scripts/python/vrun.py
+VRUN   := common/script/vrun.py
 GEN_SCRIPT := verif/_template/generate_uvm_env.py
 
 # --- Pass-through Variables (Optional) ---
@@ -110,3 +110,31 @@ regress-all:
 
 uvm_tb:
 	@$(PYTHON) $(GEN_SCRIPT) $(IP) $(TARGET) $(GEN_FLAGS)
+# =============================================================================
+# FPGA flow (see fpga/README.md) - Vivado batch, one session per target
+#   make fpga                          synth + impl + power + bitstream (default build)
+#   make fpga-power FPGA_ARGS="N 5 W 64"
+# =============================================================================
+VIVADO    ?= vivado
+FPGA_ARGS ?=
+FPGA_RUN   = mkdir -p fpga/logs && cd fpga/logs && $(VIVADO) -mode batch -notrace -nojournal -source ../scripts/run_all.tcl
+
+.PHONY: fpga fpga-board-sim fpga-synth fpga-impl fpga-power fpga-bitstream
+
+fpga:
+	$(FPGA_RUN) -log fpga.log -tclargs STEPS synth+impl+power+bitstream $(FPGA_ARGS)
+
+fpga-board-sim:
+	$(FPGA_RUN) -log board_sim.log -tclargs STEPS board_sim $(FPGA_ARGS)
+
+fpga-synth:
+	$(FPGA_RUN) -log synth.log -tclargs STEPS synth $(FPGA_ARGS)
+
+fpga-impl:
+	$(FPGA_RUN) -log impl.log -tclargs STEPS synth+impl $(FPGA_ARGS)
+
+fpga-power:
+	$(FPGA_RUN) -log power.log -tclargs STEPS synth+impl+power $(FPGA_ARGS)
+
+fpga-bitstream:
+	$(FPGA_RUN) -log bitstream.log -tclargs STEPS bitstream $(FPGA_ARGS)

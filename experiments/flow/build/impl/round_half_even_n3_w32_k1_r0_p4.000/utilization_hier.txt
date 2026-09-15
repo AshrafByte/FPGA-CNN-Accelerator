@@ -1,0 +1,35 @@
+Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2018.2 (win64) Build 2258646 Thu Jun 14 20:03:12 MDT 2018
+| Date         : Tue Sep 15 18:14:28 2026
+| Host         : DESKTOP-9H6J04C running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file {F:/Digital IC Design Projects/IEEE SSCS Student Design Competition FPGA-Based Edge-AI Vision Accelerator/fpga-cnn-accelerator/fpga/impl/round_half_even_n3_w32_k1_r0_p4.000/utilization_hier.txt}
+| Design       : conv_system
+| Device       : 7z020clg400-1
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------------------------------+------------------+------------+------------+---------+------+-----+--------+--------+--------------+
+|                  Instance                  |      Module      | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | RAMB36 | RAMB18 | DSP48 Blocks |
++--------------------------------------------+------------------+------------+------------+---------+------+-----+--------+--------+--------------+
+| conv_system                                |            (top) |         93 |         52 |      24 |   17 | 521 |      0 |      0 |            9 |
+|   (conv_system)                            |            (top) |          0 |          0 |       0 |    0 |  38 |      0 |      0 |            0 |
+|   gen_kerenl_register[0].u_kernel_register |  kernel_register |          5 |          5 |       0 |    0 |  76 |      0 |      0 |            0 |
+|   gen_mac[0].gen_single_chain.u_mac        | mac_single_chain |          2 |          1 |       0 |    1 | 226 |      0 |      0 |            9 |
+|   gen_output_fifo[0].u_output_fifo         |      output_fifo |         41 |         17 |      24 |    0 |  32 |      0 |      0 |            0 |
+|   gen_round_sat[0].u_round_saturate        |   round_saturate |         20 |         20 |       0 |    0 |  35 |      0 |      0 |            0 |
+|   u_line_buffer                            |      line_buffer |         22 |          6 |       0 |   16 |  39 |      0 |      0 |            0 |
+|   u_window_generator                       | window_generator |          3 |          3 |       0 |    0 |  75 |      0 |      0 |            0 |
++--------------------------------------------+------------------+------------+------------+---------+------+-----+--------+--------+--------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

@@ -4,9 +4,10 @@
 // Description:
 //   File-driven harness around conv_system. Unlike conv_system_tb (which is
 //   self-checking against a built-in reference model), this one carries no
-//   stimulus and no expectations of its own: it reads an image and a set of
-//   kernels from a text file, streams exactly one frame, and writes every
-//   feature it observes to a second text file. Checking is the caller's job.
+//   stimulus and no expectations of its own: it reads kernels and one or more
+//   image frames from a text file, streams the frames, and writes every
+//   feature it observes to a second text file. Checking the values is the
+//   caller's job; the frame protocol is checked here.
 //
 //   This is the hardware half of the Python conv_lab application
 //   (sw/conv_lab) - see sw/README.md for the full contract. It is equally
@@ -14,7 +15,7 @@
 //
 //     vlog -sv -timescale 1ns/1ps -F hw/system/conv_system/sim/compile.f
 //     vsim -c -gINPUT_SIZE=32 work.conv_image_tb \
-//          +stim=stimulus.txt +result=features.txt -do "run -all; quit -f"
+//          +stim=stimulus.txt +result=features.txt [+gap=<cycles>] -do "run -all; quit -f"
 //
 // Geometry is elaboration-time:
 //   INPUT_SIZE / WINDOW_SIZE / NUM_KERNELS size the DUT, so they cannot come
@@ -22,6 +23,14 @@
 //   repeats them in its header and the header is checked against the
 //   elaborated values, so a caller that forgets an override gets a clear
 //   mismatch instead of a silently truncated image.
+//
+// Frames:
+//   The file may hold several frames after the kernels. They are streamed
+//   after a single reset, with no reset in between: back to back by default
+//   (the next frame's first pixel on the cycle after the previous frame's last
+//   one), or with +gap=<cycles> idle cycles between frames. o_frame_done must
+//   be high exactly on the last feature of every frame and never without
+//   o_valid; any deviation fails the run.
 //
 // Tap ordering (the one non-obvious thing about the interface):
 //   window_generator shifts each new column in at index 0, so the flattened
@@ -37,14 +46,9 @@
 //
 // Output scaling:
 //   round_saturate drops ACCUM_WIDTH-FEATURE_WIDTH bits, so a recorded
-//   feature is the MAC divided by 2^DROP with round-half-to-even, clamped to
+//   feature is the MAC divided by 2^DROP with round half up, clamped to
 //   FEATURE_WIDTH bits. DROP is echoed into the result header so the caller
 //   never has to rederive it.
-//
-// One frame per run:
-//   output_fifo's prefill latch and kernel_register's load counter are both
-//   reset only by rst_n, so a second frame would need another reset. This
-//   testbench runs exactly one frame and finishes.
 //------------------------------------------------------------------------------
 module conv_image_tb;
 
@@ -61,6 +65,7 @@ module conv_image_tb;
 
    localparam int WINDOW_ELEMENTS = WINDOW_SIZE ** 2;
    localparam int OUTPUT_SIZE     = INPUT_SIZE - WINDOW_SIZE + 1;
+   localparam int FRAME_PIXELS    = INPUT_SIZE * INPUT_SIZE;
    localparam int FRAME_FEATURES  = OUTPUT_SIZE ** 2;
    localparam int ACCUM_WIDTH     = 2*PIXEL_WIDTH + $clog2(WINDOW_ELEMENTS);
    localparam int DROP            = ACCUM_WIDTH - FEATURE_WIDTH;
@@ -73,6 +78,7 @@ module conv_image_tb;
    typedef logic        [PIXEL_WIDTH-1:0]   data_t;
    typedef logic signed [PIXEL_WIDTH-1:0]   weight_t;
    typedef logic signed [FEATURE_WIDTH-1:0] feature_t;
+   typedef data_t                           frame_t [FRAME_PIXELS];
 
    //---------------------------------------------------------------------------
    // DUT
@@ -85,6 +91,7 @@ module conv_image_tb;
    logic [SEL_WIDTH-1:0] i_select_kernel = '0;
    feature_t             o_feature [NUM_KERNELS];
    logic                 o_valid;
+   logic                 o_frame_done;
 
    clk_gen #(.CLK_PERIOD(CLK_PERIOD)) u_clk_gen (.clk(clk));
 
@@ -98,20 +105,25 @@ module conv_image_tb;
       .clk(clk), .rst_n(rst_n),
       .i_data(i_data), .i_pixel_valid(i_pixel_valid),
       .i_weight_valid(i_weight_valid), .i_select_kernel(i_select_kernel),
-      .o_feature(o_feature), .o_valid(o_valid)
+      .o_feature(o_feature), .o_valid(o_valid), .o_frame_done(o_frame_done)
    );
 
    //---------------------------------------------------------------------------
    // State
    //---------------------------------------------------------------------------
-   data_t    tb_image    [INPUT_SIZE][INPUT_SIZE];
+   frame_t   tb_frames   [$];
    weight_t  tb_kernel   [NUM_KERNELS][WINDOW_ELEMENTS];
-   feature_t tb_captured [NUM_KERNELS][FRAME_FEATURES];
+   feature_t tb_captured [NUM_KERNELS][$];
 
    string tb_stim_path;
    string tb_result_path;
+   int    tb_gap;
+   int    tb_total_features;
    int    tb_captured_cnt;
    int    tb_overrun;
+   int    tb_done_cnt;
+   int    tb_done_errors;
+   string tb_done_msg;
 
    function automatic void die(string msg);
       $display("[conv_image_tb] ERROR: %s", msg);
@@ -119,16 +131,29 @@ module conv_image_tb;
       $fatal(1);
    endfunction
 
+   function automatic void done_error(string msg);
+      if (tb_done_errors++ == 0) tb_done_msg = msg;
+   endfunction
+
    //---------------------------------------------------------------------------
    // Capture monitor. Sampled in the Active region, so it sees what the DUT's
    // non-blocking outputs settled to during the preceding cycle. Runs always:
-   // any o_valid past FRAME_FEATURES is an overrun and is reported, not stored.
+   // any o_valid past the last frame is an overrun and is reported, not stored.
    //---------------------------------------------------------------------------
    always @(posedge clk) begin
+      if (o_frame_done === 1'b1 && o_valid !== 1'b1)
+         done_error("o_frame_done high without o_valid");
+
       if (o_valid === 1'b1) begin
-         if (tb_captured_cnt < FRAME_FEATURES) begin
+         if (tb_captured_cnt < tb_total_features) begin
             for (int k = 0; k < NUM_KERNELS; k++)
-               tb_captured[k][tb_captured_cnt] = o_feature[k];
+               tb_captured[k].push_back(o_feature[k]);
+            if ((o_frame_done === 1'b1) !=
+                ((tb_captured_cnt % FRAME_FEATURES) == FRAME_FEATURES - 1))
+               done_error($sformatf("o_frame_done=%0b on feature %0d of frame %0d",
+                                    o_frame_done, tb_captured_cnt % FRAME_FEATURES,
+                                    tb_captured_cnt / FRAME_FEATURES));
+            if (o_frame_done === 1'b1) tb_done_cnt++;
             tb_captured_cnt++;
          end else begin
             tb_overrun++;
@@ -140,7 +165,7 @@ module conv_image_tb;
    // Stimulus file. Pure whitespace-separated decimals, in this order:
    //   INPUT_SIZE WINDOW_SIZE NUM_KERNELS
    //   NUM_KERNELS * WINDOW_ELEMENTS signed weights, kernel-major
-   //   INPUT_SIZE**2 unsigned pixels, raster order
+   //   one or more frames of INPUT_SIZE**2 unsigned pixels, raster order
    //---------------------------------------------------------------------------
    task automatic read_stimulus();
       int    fd, code, value, expected;
@@ -169,14 +194,28 @@ module conv_image_tb;
             tb_kernel[k][i] = weight_t'(value);
          end
 
-      for (int r = 0; r < INPUT_SIZE; r++)
-         for (int c = 0; c < INPUT_SIZE; c++) begin
-            code = $fscanf(fd, "%d", value);
-            if (code != 1) die($sformatf("stimulus truncated at pixel (%0d,%0d)", r, c));
+      // Frames until the end of the file; a partial frame is an error.
+      forever begin
+         frame_t frame;
+         int     f;
+         f    = tb_frames.size();
+         code = $fscanf(fd, "%d", value);
+         if (code != 1) break;
+         for (int p = 0; p < FRAME_PIXELS; p++) begin
+            if (p > 0) begin
+               code = $fscanf(fd, "%d", value);
+               if (code != 1)
+                  die($sformatf("stimulus truncated at frame %0d pixel (%0d,%0d)",
+                                f, p / INPUT_SIZE, p % INPUT_SIZE));
+            end
             if (value < 0 || value > 255)
-               die($sformatf("pixel (%0d,%0d) = %0d is outside unsigned 8-bit range", r, c, value));
-            tb_image[r][c] = data_t'(value);
+               die($sformatf("frame %0d pixel (%0d,%0d) = %0d is outside unsigned 8-bit range",
+                             f, p / INPUT_SIZE, p % INPUT_SIZE, value));
+            frame[p] = data_t'(value);
          end
+         tb_frames.push_back(frame);
+      end
+      if (tb_frames.size() == 0) die("stimulus holds no frame");
 
       $fclose(fd);
    endtask
@@ -184,8 +223,9 @@ module conv_image_tb;
    //---------------------------------------------------------------------------
    // Result file:
    //   # generated by conv_image_tb
-   //   OUTPUT_SIZE NUM_KERNELS DROP
-   //   one line per output pixel in raster order, NUM_KERNELS signed values each
+   //   OUTPUT_SIZE NUM_KERNELS DROP NUM_FRAMES
+   //   one line per output pixel in raster order, frame after frame,
+   //   NUM_KERNELS signed values each
    //---------------------------------------------------------------------------
    task automatic write_results();
       int fd;
@@ -193,9 +233,10 @@ module conv_image_tb;
       fd = $fopen(tb_result_path, "w");
       if (fd == 0) die($sformatf("cannot open result file '%s' for writing", tb_result_path));
 
-      $fdisplay(fd, "# conv_image_tb: OUTPUT_SIZE NUM_KERNELS DROP, then one raster line per output pixel");
-      $fdisplay(fd, "%0d %0d %0d", OUTPUT_SIZE, NUM_KERNELS, DROP);
-      for (int n = 0; n < FRAME_FEATURES; n++) begin
+      $fdisplay(fd, "# conv_image_tb: OUTPUT_SIZE NUM_KERNELS DROP NUM_FRAMES,");
+      $fdisplay(fd, "# then one raster line per output pixel, frame by frame");
+      $fdisplay(fd, "%0d %0d %0d %0d", OUTPUT_SIZE, NUM_KERNELS, DROP, tb_frames.size());
+      for (int n = 0; n < tb_total_features; n++) begin
          for (int k = 0; k < NUM_KERNELS; k++)
             $fwrite(fd, "%0d%s", tb_captured[k][n], (k == NUM_KERNELS-1) ? "\n" : " ");
       end
@@ -226,21 +267,26 @@ module conv_image_tb;
       @(posedge clk);   // covers the one-cycle r_weight_write_en tail
    endtask
 
-   task automatic stream_frame();
-      for (int r = 0; r < INPUT_SIZE; r++)
-         for (int c = 0; c < INPUT_SIZE; c++) begin
+   // Back to back unless +gap is given: i_pixel_valid stays high from the last
+   // pixel of one frame into the first pixel of the next.
+   task automatic stream_frames();
+      for (int f = 0; f < tb_frames.size(); f++) begin
+         for (int p = 0; p < FRAME_PIXELS; p++) begin
             i_pixel_valid <= 1'b1;
-            i_data        <= tb_image[r][c];
+            i_data        <= tb_frames[f][p];
             @(posedge clk);
          end
-      i_pixel_valid <= 1'b0;
-      i_data        <= '0;
-      @(posedge clk);
+         if (tb_gap > 0 || f == tb_frames.size() - 1) begin
+            i_pixel_valid <= 1'b0;
+            i_data        <= '0;
+            repeat ((tb_gap > 0) ? tb_gap : 1) @(posedge clk);
+         end
+      end
    endtask
 
    task automatic drain();
       int idle = 0;
-      while (tb_captured_cnt < FRAME_FEATURES && idle < DRAIN_TIMEOUT) begin
+      while (tb_captured_cnt < tb_total_features && idle < DRAIN_TIMEOUT) begin
          @(posedge clk);
          idle = o_valid ? 0 : idle + 1;
       end
@@ -255,13 +301,27 @@ module conv_image_tb;
          die("missing +stim=<path> plusarg");
       if (!$value$plusargs("result=%s", tb_result_path))
          die("missing +result=<path> plusarg");
+      if (!$value$plusargs("gap=%d", tb_gap))
+         tb_gap = 0;
       if (OUTPUT_SIZE < 1)
          die($sformatf("INPUT_SIZE=%0d is not larger than WINDOW_SIZE=%0d", INPUT_SIZE, WINDOW_SIZE));
 
+      read_stimulus();
+      tb_total_features = FRAME_FEATURES * tb_frames.size();
+
       $display("[conv_image_tb] %0dx%0d image, %0dx%0d window, %0d kernel(s), DROP=%0d",
                INPUT_SIZE, INPUT_SIZE, WINDOW_SIZE, WINDOW_SIZE, NUM_KERNELS, DROP);
+      $display("[conv_image_tb] %0d frame(s), gap %0d cycle(s)", tb_frames.size(), tb_gap);
 
-      read_stimulus();
+      fork
+         begin
+            #(CLK_PERIOD * (tb_frames.size() * (4 * FRAME_PIXELS + tb_gap)
+                            + 50 * FRAME_PIXELS + 100000));
+            $display("[conv_image_tb] ERROR: watchdog expired");
+            $display("[conv_image_tb] STATUS: ERROR");
+            $fatal(1);
+         end
+      join_none
 
       apply_reset(clk, 5, rst_n);
       i_data <= '0; i_pixel_valid <= 1'b0; i_weight_valid <= 1'b0; i_select_kernel <= '0;
@@ -271,28 +331,26 @@ module conv_image_tb;
          push_weights(k, tb_kernel[k]);
       repeat (2) @(posedge clk);
 
-      stream_frame();
+      stream_frames();
       drain();
 
-      if (tb_captured_cnt != FRAME_FEATURES)
+      if (tb_captured_cnt != tb_total_features)
          die($sformatf("captured %0d feature(s), expected %0d - pipeline stalled",
-                       tb_captured_cnt, FRAME_FEATURES));
+                       tb_captured_cnt, tb_total_features));
       if (tb_overrun != 0)
-         die($sformatf("%0d feature(s) arrived after the frame was complete", tb_overrun));
+         die($sformatf("%0d feature(s) arrived after the last frame was complete", tb_overrun));
+      if (tb_done_errors != 0)
+         die($sformatf("%0d o_frame_done error(s), first: %s", tb_done_errors, tb_done_msg));
+      if (tb_done_cnt != tb_frames.size())
+         die($sformatf("%0d o_frame_done pulse(s) for %0d frame(s)",
+                       tb_done_cnt, tb_frames.size()));
 
       write_results();
 
-      $display("[conv_image_tb] wrote %0d feature(s) x %0d kernel(s) to %s",
-               tb_captured_cnt, NUM_KERNELS, tb_result_path);
+      $display("[conv_image_tb] wrote %0d feature(s) x %0d kernel(s) over %0d frame(s) to %s",
+               tb_captured_cnt, NUM_KERNELS, tb_frames.size(), tb_result_path);
       $display("[conv_image_tb] STATUS: OK");
       $finish(0);
-   end
-
-   initial begin
-      #(CLK_PERIOD * (50 * INPUT_SIZE * INPUT_SIZE + 100000));
-      $display("[conv_image_tb] ERROR: watchdog expired");
-      $display("[conv_image_tb] STATUS: ERROR");
-      $fatal(1);
    end
 
 endmodule

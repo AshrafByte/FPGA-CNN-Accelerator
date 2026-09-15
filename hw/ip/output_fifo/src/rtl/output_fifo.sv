@@ -2,141 +2,182 @@
 // Module: output_fifo
 //
 // Description:
-//   Synchronous elastic buffer that absorbs gaps in an upstream valid signal
-//   and re-emits a smoothed, continuously-draining output stream. Buffers
-//   elements while upstream provides them and drains one element per cycle
-//   whenever any data is available, decoupling downstream timing from
-//   upstream burstiness (e.g. row-boundary gaps in a streaming pipeline).
+//   Prefill-gated FIFO that turns the gapped feature stream into a continuous
+//   one: once PREFILL_THRESHOLD entries have accumulated it drains one entry
+//   per cycle until empty. i_last marks the last entry of a frame; reading
+//   that entry raises o_last with it and re-arms the prefill, so every frame
+//   is buffered the same way without a reset.
 //
 // Architecture:
-//   - Standard circular-buffer FIFO: independent read/write pointers plus
-//     an explicit occupancy counter.
-//   - Prefill gate: draining does not begin until occupancy has reached
-//     PREFILL_THRESHOLD at least once, guaranteeing enough cushion is
-//     banked before the output stream starts relying on it. Once reached,
-//     draining continues for as long as any data remains buffered.
-//   - No backpressure/ready signal — draining, once primed, is automatic
-//     and unconditional whenever the FIFO is non-empty.
-//
-// Data Flow:
-//   - i_data_in is written whenever i_valid_in is high.
-//   - No output is produced until occupancy first reaches PREFILL_THRESHOLD.
-//   - After that point, o_data_out reflects the oldest buffered element,
-//     advancing and asserting o_valid_out on every cycle the FIFO holds
-//     at least one element.
+//   - Memory of RAM_DEPTH = 2^$clog2(DEPTH+1) entries, a power of two strictly
+//     greater than DEPTH. The pointers are exactly $clog2(RAM_DEPTH) bits wide
+//     and wrap on their own, so there is no wrap comparator.
+//   - There is no occupancy counter. Occupancy never exceeds DEPTH, which is
+//     below RAM_DEPTH, so the FIFO is empty exactly when the two pointers are
+//     equal. That equality replaces the up/down counter and its != 0 test.
+//   - Prefill: while the latch is clear no read has happened since the
+//     pointers were last zeroed, so occupancy equals the write pointer and the
+//     threshold test can look at the write pointer alone.
+//   - Frames: q_last_written records that the frame's last entry has been
+//     written. The FIFO is next empty on the cycle o_valid presents that
+//     entry; that condition is o_last, and on the following edge it clears
+//     the prefill latch and returns both pointers to zero, which restores the
+//     prefill invariant for the next frame. The pointers and flags use a
+//     synchronous clear shared by rst_n and the frame end, so the frame logic
+//     costs no LUTs in the pointer next-state logic. With i_last tied low the
+//     latch is sticky until rst_n and the frame logic is removed.
+//   - USE_BRAM selects the memory primitive (chosen by conv_system from the
+//     figure-of-merit cost of each):
+//       0: distributed RAM (LUTRAM). o_data is a reset register after an
+//          asynchronous read.
+//       1: block RAM. The read is synchronous and its register is the BRAM
+//          output register, so it carries no reset. Same cycle timing as the
+//          LUTRAM version: o_data updates on the cycle o_valid rises.
+//     A read never targets the address being written (reads only happen when
+//     the pointers differ), so read/write collision behaviour does not matter.
 //
 // Timing:
-//   - Read and write pointers, occupancy count, prefill state, and data
-//     memory are all updated on the rising clock edge.
-//   - o_data_out/o_valid_out are registered, one cycle after the
-//     corresponding read decision.
-//   - Prefill trigger fires one count EARLY (>= PREFILL_THRESHOLD-1, not
-//     PREFILL_THRESHOLD): since q_prefilled itself is registered and lags
-//     q_count by one cycle, comparing against the exact threshold would let
-//     occupancy reach PREFILL_THRESHOLD (i.e. completely full when
-//     PREFILL_THRESHOLD == DEPTH) for one cycle before draining begins,
-//     during which a write would silently overwrite address 0 before it was
-//     ever read. Triggering one count early ensures draining is already
-//     active by the cycle occupancy would otherwise overflow.
+//   - o_data/o_valid are registered; o_data holds between valids and is only
+//     meaningful while o_valid is high (in the BRAM version it is undefined
+//     until the first read). o_last is a decode of three registers, high only
+//     together with o_valid, on the frame's last entry.
+//   - rst_n clears the pointers and flags synchronously (the clock runs during
+//     reset); o_valid and o_data keep their asynchronous reset.
 //
 // Assumptions:
-//   - Caller sizes DEPTH and PREFILL_THRESHOLD together, derived from the
-//     actual upstream gap pattern and total frame length at the integration
-//     site, such that the buffered cushion never runs out before the last
-//     element of the frame has been written. This module does not detect
-//     or guard against underflow/overflow if that assumption is wrong.
-//   - i_valid_in reflects that i_data_in is valid and stable on the same cycle.
-//   - The prefill latch is sticky and only clears on rst_n — this module
-//     does not yet support resetting prefill state between frames without
-//     an external reset pulse (see conv_system's assumptions).
+//   - Caller sizes DEPTH >= the peak occupancy (conv_system does).
+//   - The next frame's first entry is written only after the previous frame's
+//     last entry has been read. conv_system guarantees it: a frame needs
+//     (N-1)(W+1)+1 accepted pixels before its first feature, more than the
+//     DEPTH = (W-N)(N-1) entries left to drain. A simulation check reports a
+//     violation.
 //
 // Parameters:
-//   PIXEL_WIDTH      : Width of each buffered element.
-//   DEPTH            : Number of elements the FIFO can hold; sized by the caller.
-//   PREFILL_THRESHOLD: Occupancy level that must be reached once before
-//                      draining begins; sized by the caller to survive the
-//                      worst-case upstream gap.
+//   PIXEL_WIDTH      : Width of each stored element.
+//   DEPTH            : Peak occupancy the caller needs.
+//   PREFILL_THRESHOLD: Occupancy that must be reached before a frame drains.
+//   USE_BRAM         : 1 = block RAM, 0 = distributed RAM.
 //------------------------------------------------------------------------------
 module output_fifo
    #(
       parameter int PIXEL_WIDTH       = 8,
       parameter int DEPTH             = 64,
-      parameter int PREFILL_THRESHOLD = DEPTH, 
+      parameter int PREFILL_THRESHOLD = DEPTH,
+      parameter bit USE_BRAM          = 1'b0,
 
-      localparam type pixel_t = logic signed [PIXEL_WIDTH-1:0]
+      localparam int  ADDR_WIDTH = $clog2(DEPTH + 1),
+      localparam int  RAM_DEPTH  = 1 << ADDR_WIDTH,
+      localparam type pixel_t    = logic signed [PIXEL_WIDTH-1:0],
+      localparam type addr_t     = logic [ADDR_WIDTH-1:0]
    )(
       input logic clk,
       input logic rst_n,
 
       input logic   i_valid,
       input pixel_t i_data,
+      input logic   i_last,
 
       output pixel_t o_data,
-      output logic   o_valid
+      output logic   o_valid,
+      output logic   o_last
    );
 
-   localparam type addr_t  = logic [$clog2(DEPTH)-1:0];
-   localparam type count_t = logic [$clog2(DEPTH+1)-1:0];
+   addr_t q_write_ptr;
+   addr_t q_read_ptr;
+   logic  q_prefilled;
+   logic  q_last_written;
 
-   (* ram_style = "distributed" *)
-   pixel_t r_mem [DEPTH];
+   logic  q_clear;
+   logic  w_empty;
+   logic  w_will_read;
+   logic  w_frame_end;
 
-   addr_t  q_write_ptr, d_write_ptr;
-   addr_t  q_read_ptr, d_read_ptr;
-   count_t q_count, d_count;
-   logic   q_prefilled, d_prefilled;
+   assign w_empty     = (q_read_ptr == q_write_ptr);
+   assign w_will_read = q_prefilled && !w_empty;
+   // Once the frame's last entry has been written the FIFO is not empty again
+   // until that entry has been read, so "prefilled, last written and empty"
+   // is true exactly on the cycle o_valid presents the last entry. It reuses
+   // the empty comparator and needs no pointer arithmetic. The flags are only
+   // cleared one cycle later (q_clear), so !q_clear keeps it to one cycle.
+   assign w_frame_end = q_prefilled && q_last_written && w_empty && !q_clear;
 
-   logic w_will_write;
-   logic w_will_read;
+   // The clear is registered: the comparator then drives one flip-flop, not
+   // the reset pins of every pointer bit. Delaying it a cycle is safe because
+   // the FIFO stays empty and the next frame's first entry is still at least
+   // (N-1)(W+1) cycles away.
+   always_ff @(posedge clk) begin: clear_register
+      if (!rst_n) q_clear <= 1'b0;
+      else        q_clear <= w_frame_end;
+   end: clear_register
 
-   assign w_will_write = i_valid;
-   assign w_will_read  = q_prefilled && (q_count != '0);
-
-   assign d_write_ptr = w_will_write ? ((q_write_ptr == addr_t'(DEPTH-1)) ? '0 : q_write_ptr + 1'b1) : q_write_ptr;
-   assign d_read_ptr  = w_will_read  ? ((q_read_ptr  == addr_t'(DEPTH-1)) ? '0 : q_read_ptr  + 1'b1) : q_read_ptr;
-
-   always_ff @(posedge clk or negedge rst_n) begin: pointer_registers
-      if (!rst_n) begin
-         q_write_ptr <= '0;
-         q_read_ptr  <= '0;
-         q_count     <= '0;
-         q_prefilled <= 1'b0;
+   // Synchronous clear: rst_n and the frame end share the flip-flops' reset
+   // pin instead of adding a term to every pointer bit's next-state logic.
+   always_ff @(posedge clk) begin: pointer_registers
+      if (!rst_n || q_clear) begin
+         q_write_ptr    <= '0;
+         q_read_ptr     <= '0;
+         q_prefilled    <= 1'b0;
+         q_last_written <= 1'b0;
       end else begin
-         q_write_ptr <= d_write_ptr;
-         q_read_ptr  <= d_read_ptr;
-         q_count     <= d_count;
-         q_prefilled <= d_prefilled;
+         if (i_valid)     q_write_ptr <= q_write_ptr + 1'b1;
+         if (w_will_read) q_read_ptr  <= q_read_ptr  + 1'b1;
+         if (q_write_ptr >= addr_t'(PREFILL_THRESHOLD-1))
+            q_prefilled <= 1'b1;
+         if (i_valid && i_last)
+            q_last_written <= 1'b1;
       end
    end: pointer_registers
 
-   always_comb begin: occupancy_next
-      d_count = q_count;
-      if (w_will_write && !w_will_read)
-         d_count = q_count + 1'b1;
-      else if (!w_will_write && w_will_read)
-         d_count = q_count - 1'b1;
-      else
-         d_count = q_count;
-   end: occupancy_next
+   generate
+      if (USE_BRAM) begin : gen_bram
 
-   // sticky: once reached, stays primed for the rest of the frame.
-   // Triggers one count early - see Timing note above for why.
-   assign d_prefilled = q_prefilled || (q_count >= count_t'(PREFILL_THRESHOLD-1));
+         (* ram_style = "block" *)
+         pixel_t r_mem [RAM_DEPTH];
+         pixel_t r_rd_data;
 
-   always_ff @(posedge clk) begin: fifo_memory
-      if (w_will_write)
-         r_mem[q_write_ptr] <= i_data;
-   end: fifo_memory
+         // Synchronous write and synchronous, enabled read: the BRAM pattern.
+         always_ff @(posedge clk) begin: fifo_memory
+            if (i_valid)
+               r_mem[q_write_ptr] <= i_data;
+            if (w_will_read)
+               r_rd_data <= r_mem[q_read_ptr];
+         end: fifo_memory
 
-   always_ff @(posedge clk or negedge rst_n) begin: output_register
-      if (!rst_n) begin
-         o_data  <= '0;
+         assign o_data = r_rd_data;
+      end : gen_bram
+
+      else begin : gen_lutram
+
+         (* ram_style = "distributed" *)
+         pixel_t r_mem [RAM_DEPTH];
+
+         always_ff @(posedge clk) begin: fifo_memory
+            if (i_valid)
+               r_mem[q_write_ptr] <= i_data;
+         end: fifo_memory
+
+         always_ff @(posedge clk or negedge rst_n) begin: output_data
+            if (!rst_n)
+               o_data <= '0;
+            else if (w_will_read)
+               o_data <= r_mem[q_read_ptr];
+         end: output_data
+      end : gen_lutram
+   endgenerate
+
+   always_ff @(posedge clk or negedge rst_n) begin: output_valid
+      if (!rst_n)
          o_valid <= 1'b0;
-      end else begin
+      else
          o_valid <= w_will_read;
-         if (w_will_read)
-            o_data <= r_mem[q_read_ptr];
-      end
-   end: output_register
+   end: output_valid
+
+   assign o_last = w_frame_end;
+
+   // synthesis translate_off
+   always @(posedge clk)
+      if (rst_n && (w_frame_end || q_clear) && i_valid)
+         $error("[output_fifo] next frame's first entry arrived before the last one drained");
+   // synthesis translate_on
 
 endmodule

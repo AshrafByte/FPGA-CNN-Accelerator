@@ -1,0 +1,10 @@
+lut=998
+lutram=653
+ff=4421
+dsp=169
+bram=0
+wns=0.128
+tns=0.000
+whs=0.021
+fmax_mhz=163.3
+power_vectorless_mw=380.483

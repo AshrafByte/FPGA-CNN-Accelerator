@@ -163,8 +163,30 @@ _downloaded_*
 *dvt*
 # conv_lab (sw/) simulator run artifacts, venvs and Python caches
 sw/.run/
+sw/.run_wave_*/
 regression_results/
 .venv/
 __pycache__/
 .pytest_cache/
 .idea/
+
+# Report diagram export scratch (headless Chrome profile, redirect pages)
+docs/report/scripts/.diagram_build/
+
+# FPGA flow (fpga/): checkpoints, the demo's Vivado project, simulator scratch
+# and logs. Reports (*.txt, summary.md, results.csv) and the PYNQ overlay
+# (conv_demo.bit / conv_demo.hwh) are kept.
+fpga/**/*.dcp
+fpga/bitstream/build/
+fpga/sim/build/
+fpga/logs/
+
+# competition upload package rebuilt locally
+submission/
+
+# experiments flow (experiments/flow): same policy - reports kept, checkpoints, simulator
+# scratch and logs ignored
+experiments/flow/build/**/*.dcp
+experiments/flow/build/sim/
+experiments/flow/build/logs/
+experiments/**/sim/work/

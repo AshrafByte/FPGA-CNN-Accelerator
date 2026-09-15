@@ -83,7 +83,7 @@ class Gallery:
         header = [
             f"conv_lab hardware regression, started {self.started:%Y-%m-%d %H:%M:%S}",
             self.settings,
-            f"{sum(self.counts.values())} case(s): {self.counts['PASS']} passed, "
+            f"{sum(self.counts.values())} frame(s): {self.counts['PASS']} passed, "
             f"{self.counts['FAIL']} failed, {self.counts['ERROR']} errored",
             "",
         ]

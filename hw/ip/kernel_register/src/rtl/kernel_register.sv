@@ -2,47 +2,32 @@
 // Module: kernel_register
 //
 // Description:
-//   Serially-loaded register bank holding a flattened WINDOW_SIZE x
-//   WINDOW_SIZE set of kernel weights. Unlike a parallel-array load port
-//   (which would need WINDOW_SIZE**2 * PIXEL_WIDTH bits arriving in one
-//   cycle, or PIXEL_WIDTH bits x WINDOW_SIZE**2 wires held for a whole
-//   column), this module accepts ONE weight value per cycle over a single
-//   PIXEL_WIDTH-wide bus, tracking its own write pointer. This is what lets
-//   the top-level system share a single data bus between pixels and
-//   weights (see conv_system) instead of paying for two separate I/O buses.
+//   Holds the WINDOW_SIZE**2 signed kernel weights, loaded serially.
 //
 // Architecture:
-//   - Flat array of WINDOW_SIZE**2 registers, filled one element per cycle
-//     at an internally-tracked write pointer that wraps after a full load.
-//   - o_ready is a sticky level: once WINDOW_SIZE**2 weights have been
-//     loaded, it stays high until reset, regardless of further loads
-//     (a caller reloading weights mid-operation will simply overwrite
-//     from index 0 again, without o_ready ever dropping).
-//
-// Data Flow:
-//   - i_weight is captured into r_weights[r_wr_ptr] whenever i_valid is
-//     asserted; the pointer advances (and wraps) on the same cycle.
-//   - o_weights continuously reflects the full, currently-loaded set.
+//   - Weights shift in: each write moves every stored weight down one index
+//     and places the new weight at the top, so after WINDOW_ELEMENTS writes
+//     the first weight written sits at index 0 - the same final placement as
+//     an indexed write, without a write pointer or a per-register address
+//     decode (the indexed version spent 16 LUTs on that decode).
+//   - The shift is a register chain with a clock enable. The asynchronous
+//     reset keeps it out of SRLs, which would cost LUTs.
+//   - o_ready rises once exactly WINDOW_ELEMENTS weights have been loaded.
+//     A write while o_ready is high starts a new load: the count restarts at
+//     one, so a full reload of WINDOW_ELEMENTS weights raises o_ready again
+//     without a reset, and an over-long load leaves it low - visible rather
+//     than silently accepted.
 //
 // Timing:
-//   - Load and pointer advance occur synchronously on the rising clock
-//     edge when i_valid is high.
-//   - o_weights is a direct combinational read of the registered weights
-//     (zero additional latency).
+//   - Zero additional latency: o_weights reads the registers directly.
 //
 // Assumptions:
-//   - Caller presents exactly WINDOW_SIZE**2 consecutive i_valid cycles
-//     to fully load one kernel, in the intended tap order (index 0 first).
-//     Asserting i_valid for more or fewer cycles than WINDOW_SIZE**2
-//     either wraps back to index 0 (more) or leaves some taps at their
-//     prior value (fewer) — this module does not detect either condition.
-//   - Caller does not assert i_valid concurrently with pixel streaming
-//     if changing weights mid-frame is not intended (see conv_system's
-//     own assumptions about the shared pixel/weight bus).
+//   - The kernel is loaded before a frame streams and stays constant during
+//     it; it may be reloaded between frames.
 //
 // Parameters:
-//   PIXEL_WIDTH : Bit width of each weight value.
-//   WINDOW_SIZE : Kernel dimension; total weights loaded = WINDOW_SIZE**2.
+//   PIXEL_WIDTH : Width of each weight.
+//   WINDOW_SIZE : Kernel dimension.
 //------------------------------------------------------------------------------
 module kernel_register
    #(
@@ -62,25 +47,24 @@ module kernel_register
       output logic   o_ready
    );
 
-   localparam type idx_t      = logic [$clog2(WINDOW_ELEMENTS)-1:0];
    localparam type load_cnt_t = logic [$clog2(WINDOW_ELEMENTS+1)-1:0];
 
    pixel_t    r_weights    [WINDOW_ELEMENTS];
-   idx_t      r_wr_ptr;
    load_cnt_t r_loaded_cnt;
 
    always_ff @(posedge clk or negedge rst_n) begin: kernel_registers
-      if (!rst_n) begin : reset_kernel_registers
+      if (!rst_n) begin
          r_weights    <= '{default: '0};
-         r_wr_ptr     <= '0;
          r_loaded_cnt <= '0;
-      end else if (i_write_en) begin : load_kernel_registers
-         r_weights[r_wr_ptr] <= i_weight;
-         r_wr_ptr            <= (r_wr_ptr == idx_t'(WINDOW_ELEMENTS-1)) ? '0 : r_wr_ptr + 1'b1;
+      end else if (i_write_en) begin
+         for (int k = 0; k < WINDOW_ELEMENTS-1; k++)
+            r_weights[k] <= r_weights[k+1];
+         r_weights[WINDOW_ELEMENTS-1] <= i_weight;
+
          if (r_loaded_cnt < load_cnt_t'(WINDOW_ELEMENTS))
             r_loaded_cnt <= r_loaded_cnt + 1'b1;
-         else 
-            r_loaded_cnt <= '0 ;
+         else
+            r_loaded_cnt <= load_cnt_t'(1);   // this write is the first of a new load
       end
    end: kernel_registers
 

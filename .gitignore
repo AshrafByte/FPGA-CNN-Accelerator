@@ -190,3 +190,6 @@ experiments/flow/build/**/*.dcp
 experiments/flow/build/sim/
 experiments/flow/build/logs/
 experiments/**/sim/work/
+
+# Office lock files, present while a document is open in PowerPoint, Word or Excel
+~$*

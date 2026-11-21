@@ -219,7 +219,11 @@ text(s, "Architecture · Verification · FPGA Implementation", 0.63, 4.15, 12, 0
 tf = textbox(s, 0.63, 5.25, 12, 0.6)
 runs(tf.paragraphs[0], "ARA Silicon", 27, IEEE, True)
 runs(tf.paragraphs[0], "    Ain Shams University", 20, MUTED)
-text(s, "Ahmed Ashraf     ·     Rana Ayman     ·     Ammar Ahmed", 0.63, 6.05, 12, 0.5, 21)
+for i, (name, dept) in enumerate((("Ahmed Ashraf", "Computer and Systems Engineering"),
+                                  ("Rana Ayman", "Computer and Systems Engineering"),
+                                  ("Ammar Ahmed", "Electronics and Communications Engineering"))):
+    text(s, name, 0.63 + 3.6 * i, 5.95, 4.6, 0.42, 21)
+    text(s, dept, 0.63 + 3.6 * i, 6.38, 4.6, 0.35, 15, MUTED)
 
 # ------------------------------------------------------------------ 2. design principle
 s = slide("Design principle: follow the Figure of Merit")

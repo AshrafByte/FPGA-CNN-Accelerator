@@ -82,8 +82,12 @@
   ]
   #block(inset: (x: 1.6cm, y: 0.8cm))[
     #text(size: 27pt, weight: "bold", fill: ieee)[ARA Silicon] #h(0.6em) #text(size: 20pt, fill: muted)[Ain Shams University]
-    #v(0.35em)
-    #text(size: 21pt)[Ahmed Ashraf #h(1em) · #h(1em) Rana Ayman #h(1em) · #h(1em) Ammar Ahmed]
+    #v(0.9em)
+    #grid(columns: (auto, auto, auto), column-gutter: 1.6cm,
+      [#text(size: 21pt)[Ahmed Ashraf] \ #text(size: 15pt, fill: muted)[Computer and Systems Engineering]],
+      [#text(size: 21pt)[Rana Ayman] \ #text(size: 15pt, fill: muted)[Computer and Systems Engineering]],
+      [#text(size: 21pt)[Ammar Ahmed] \ #text(size: 15pt, fill: muted)[Electronics and Communications Engineering]],
+    )
   ]
 ]
 

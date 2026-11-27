@@ -529,21 +529,6 @@ vivado -mode batch -source experiments/flow/scripts/run_all.tcl -tclargs RTL con
    `conv_demo.ipynb` into one folder.
 3. Run the notebook, or `sudo python3 conv_demo.py --image photo.jpg --kernels sobel_x sobel_y --save edges.png`.
 
-### 9.7 Documents and figures
-
-```bash
-typst compile docs/report/main.typ docs/report/report.pdf
-cd docs/presentation && typst compile --root .. slides.typ slides.pdf
-```
-
-| Figures | Script |
-|---|---|
-| Block diagrams | `docs/report/scripts/diagrams.py` → `docs/resources/diagrams/report_figures.drawio` → `export_diagrams.py` |
-| QuestaSim waveforms | `docs/report/scripts/waveform.py` |
-| Vivado xsim waveforms | `docs/report/scripts/vivado_waves.py` |
-| Rounding, saturation, sweep charts | `docs/report/scripts/rounding_analysis.m`, `sweep_charts.m` (MATLAB; copies in `experiments/rounding/` and `experiments/sweep/`) |
-| Other charts | `docs/report/scripts/make_charts.py` |
-
 ---
 
 ## 10. Documentation and team

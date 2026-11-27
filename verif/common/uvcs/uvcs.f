@@ -1,2 +1,0 @@
--F ./clk_uvc/uvc.f
--F ./rst_uvc/uvc.f

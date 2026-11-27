@@ -9,7 +9,6 @@
 ![Vivado](https://img.shields.io/badge/Vivado-2018.2-E01F27)
 ![QuestaSim](https://img.shields.io/badge/QuestaSim-verified-2E7D32)
 ![PYNQ-Z2](https://img.shields.io/badge/PYNQ--Z2-xc7z020-6C757D)
-[![CI](https://github.com/AshrafByte/fpga-cnn-accelerator/actions/workflows/ci.yaml/badge.svg)](https://github.com/AshrafByte/fpga-cnn-accelerator/actions/workflows/ci.yaml)
 
 A streaming, fully parameterized N×N convolution accelerator in SystemVerilog, implemented on the
 AMD Zynq-7020 (PYNQ-Z2), verified bit-exact against an independent Python golden model and

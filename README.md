@@ -84,14 +84,11 @@ fpga-cnn-accelerator/
 │   ├── bitstream/                          conv_demo.bit + conv_demo.hwh (PYNQ overlay)
 │   └── board/                              AXI4-Lite wrapper, its testbench, PYNQ driver + notebook
 ├── experiments/                 standalone MAC architectures, rounding variants, 160 MHz sweep
-├── verif/                       UVM environment template and shared verification components
 ├── docs/
 │   ├── report/                  Typst report (report.pdf), figures, figure scripts (Python, MATLAB)
 │   ├── presentation/            Typst slides (slides.pdf)
 │   ├── resources/diagrams/      draw.io sources of every block diagram
 │   └── spec/                    competition announcement
-├── .github/workflows/ci.yaml    lint on pushes to hw/, common/ and verif/
-└── Makefile                     make sim / verify / fpga targets
 ```
 
 | To learn about | Read |
